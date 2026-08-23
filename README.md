@@ -70,6 +70,11 @@ Dois perfis autenticados: Administrador e Analista. O respondente não tem conta
 nasce protegida — rota pública exige `@Publico()` explícito. Modelo completo em
 [docs/autenticacao-e-acesso.md](./docs/autenticacao-e-acesso.md).
 
+## Formulários
+
+Montagem do formulário, cinco tipos de pergunta, ordenação e a trava de imutabilidade
+depois da publicação: [docs/formularios.md](./docs/formularios.md).
+
 ## Privacidade
 
 A resposta é anônima por construção: nome, CPF, telefone e e-mail do respondente não são

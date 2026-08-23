@@ -1,10 +1,11 @@
 # Modelagem do Banco de Dados
 
 Sistema de Pesquisa Eleitoral — PostgreSQL 16 + Prisma.
-Corresponde ao item 5.2 do documento de escopo e à task **S0-03**.
+Corresponde ao item 5.2 do documento de escopo (task **S0-03**), com as ampliações das
+Sprints 1 (sessão) e 2 (tipo ESCALA na pergunta).
 
 Fonte de verdade: [`apps/api/prisma/schema.prisma`](../apps/api/prisma/schema.prisma).
-Script aplicado: `apps/api/prisma/migrations/20260823120000_estrutura_inicial/migration.sql`.
+Migrations em `apps/api/prisma/migrations/`.
 
 ## Diagrama
 
@@ -46,9 +47,11 @@ erDiagram
         uuid id PK
         uuid formulario_id FK
         varchar enunciado
-        enum tipo
+        enum tipo "5 tipos"
         boolean obrigatoria
         int ordem UK
+        int escala_minimo
+        int escala_maximo
     }
     ALTERNATIVA {
         uuid id PK
@@ -115,7 +118,8 @@ permanece e sai da contagem.
 ## Objetos escritos à mão na migration
 
 O Prisma não modela índice parcial, `CHECK` nem comentário de coluna. Todos vivem dentro do
-`migration.sql` da migration inicial — nunca em `.sql` solto fora do controle de migrations.
+`migration.sql` da migration correspondente — nunca em `.sql` solto fora do controle de
+migrations.
 
 | Objeto | Tipo | Papel |
 |---|---|---|
@@ -129,6 +133,13 @@ O Prisma não modela índice parcial, `CHECK` nem comentário de coluna. Todos v
 | `ck_municipio_codigo_ibge_7_digitos` | CHECK | código IBGE com 7 dígitos |
 | `ck_municipio_uf_formato` | CHECK | UF com duas letras maiúsculas |
 | `ck_formulario_vigencia` | CHECK | fim da vigência nunca antes do início |
+| `ck_pergunta_escala_coerente` | CHECK | configuração de escala só no tipo ESCALA, e sempre completa |
+| `ck_pergunta_escala_faixa` | CHECK | escala dentro de 0 a 10 |
+| `ck_pergunta_ordem_positiva` | CHECK | ordem de pergunta sempre positiva |
+| `ck_alternativa_ordem_positiva` | CHECK | ordem de alternativa sempre positiva |
+| `ck_sessao_encerramento_coerente` | CHECK | encerramento de sessão com data e motivo juntos |
+| `ck_sessao_expiracao_posterior` | CHECK | expiração sempre depois da criação |
+| `ix_sessao_ativa` | índice parcial | varredura de sessões vivas |
 
 ## Índices de apuração
 

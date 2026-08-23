@@ -18,7 +18,7 @@ export class ErroDeRede extends Error {
 }
 
 interface Opcoes {
-  metodo?: 'GET' | 'POST' | 'PATCH';
+  metodo?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   corpo?: unknown;
   token?: string;
 }

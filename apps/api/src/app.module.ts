@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PerfisGuard } from './auth/guards/perfis.guard';
 import { validarAmbiente } from './config/env.config';
+import { FormulariosModule } from './formularios/formularios.module';
 import { HealthModule } from './health/health.module';
 import { MunicipiosModule } from './municipios/municipios.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -34,6 +35,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     AuditoriaModule,
     UsuariosModule,
     AuthModule,
+    FormulariosModule,
     HealthModule,
     MunicipiosModule,
   ],

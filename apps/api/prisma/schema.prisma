@@ -133,6 +133,13 @@ model Pergunta {
   tipo         PerguntaTipo
   obrigatoria  Boolean      @default(true)
   ordem        Int
+
+  /// Configuração exclusiva do tipo ESCALA. Nos demais tipos fica nula (CHECK na migration).
+  escalaMinimo       Int?    @map("escala_minimo")
+  escalaMaximo       Int?    @map("escala_maximo")
+  escalaRotuloMinimo String? @map("escala_rotulo_minimo") @db.VarChar(60)
+  escalaRotuloMaximo String? @map("escala_rotulo_maximo") @db.VarChar(60)
+
   criadoEm     DateTime     @default(now()) @map("criado_em") @db.Timestamptz(6)
   atualizadoEm DateTime     @updatedAt @map("atualizado_em") @db.Timestamptz(6)
 
@@ -148,6 +155,7 @@ model Pergunta {
 enum PerguntaTipo {
   UNICA_ESCOLHA
   MULTIPLA_ESCOLHA
+  ESCALA
   TEXTO_LIVRE
   NUMERO
 
@@ -302,6 +310,8 @@ enum AuditoriaAcao {
   SENHA_ALTERADA
   PERMISSAO_ALTERADA
   FORMULARIO_CRIADO
+  FORMULARIO_ALTERADO
+  FORMULARIO_EXCLUIDO
   FORMULARIO_PUBLICADO
   COLETA_ENCERRADA
   RESPOSTA_INVALIDADA
