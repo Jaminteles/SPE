@@ -6,7 +6,9 @@
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "scheme": "spe",
-    "runtimeVersion": { "policy": "appVersion" },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "assetBundlePatterns": ["**/*"],
     "android": {
       "package": "br.com.pesquisaeleitoral.coleta",
@@ -15,6 +17,19 @@
     },
     "extra": {
       "eas": {}
-    }
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 29,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 34
+          }
+        }
+      ]
+    ]
   }
 }

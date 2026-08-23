@@ -1,6 +1,7 @@
 import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { Publico } from '../auth/decorators/publico.decorator';
 import { ListarMunicipiosDto } from './dto/listar-municipios.dto';
 import { ListaMunicipiosResponse, MunicipioResponse } from './dto/municipio.response';
 import { MunicipiosService } from './municipios.service';
@@ -10,6 +11,7 @@ import { MunicipiosService } from './municipios.service';
  * Pública não é desprotegida — vale o rate limit global e a validação estrita de entrada.
  * Só dado de referência do IBGE trafega aqui; nada de resposta ou de respondente.
  */
+@Publico()
 @ApiTags('municipios')
 @Controller('municipios')
 export class MunicipiosController {

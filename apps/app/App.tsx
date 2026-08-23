@@ -1,44 +1,69 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
-import { ambiente } from './src/config/ambiente';
+import { UsuarioLogado, servicoAuth } from './src/auth/servico-auth';
+import { TelaInicio } from './src/telas/TelaInicio';
+import { TelaLogin } from './src/telas/TelaLogin';
+import { cores } from './src/ui/cores';
 
-/**
- * Casca do aplicativo (Sprint 0).
- * As telas de consentimento, coleta e administração entram nas sprints seguintes.
- */
 export default function App() {
+  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    let ativo = true;
+
+    servicoAuth
+      .retomarSessao()
+      .then((retomado) => {
+        if (ativo) {
+          setUsuario(retomado);
+        }
+      })
+      .finally(() => {
+        if (ativo) {
+          setCarregando(false);
+        }
+      });
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  const sair = useCallback(async () => {
+    await servicoAuth.sair();
+    setUsuario(null);
+  }, []);
+
+  if (carregando) {
+    return (
+      <View style={estilos.centro}>
+        <ActivityIndicator color={cores.acao} />
+        <StatusBar style="auto" />
+      </View>
+    );
+  }
+
   return (
-    <View style={estilos.container}>
-      <Text style={estilos.titulo}>Pesquisa Eleitoral</Text>
-      <Text style={estilos.subtitulo}>Bahia</Text>
-      <Text style={estilos.rodape}>API: {ambiente.apiUrl}</Text>
+    <View style={estilos.raiz}>
+      {usuario ? (
+        <TelaInicio usuario={usuario} aoSair={sair} />
+      ) : (
+        <TelaLogin aoEntrar={setUsuario} />
+      )}
       <StatusBar style="auto" />
     </View>
   );
 }
 
 const estilos = StyleSheet.create({
-  container: {
+  raiz: { flex: 1, backgroundColor: cores.fundo },
+  centro: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-    backgroundColor: '#ffffff',
-  },
-  titulo: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: '#16202a',
-  },
-  subtitulo: {
-    fontSize: 15,
-    color: '#5b6b7b',
-    marginTop: 4,
-  },
-  rodape: {
-    fontSize: 12,
-    color: '#8a99a8',
-    marginTop: 24,
+    backgroundColor: cores.fundo,
   },
 });

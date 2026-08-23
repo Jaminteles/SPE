@@ -45,8 +45,13 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:?defina CORS_ORIGINS}
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET}
       DEVICE_HASH_PEPPER: ${DEVICE_HASH_PEPPER:?defina DEVICE_HASH_PEPPER}
-    ports:
-      - '3000:3000'
+      JWT_ACCESS_TTL_MIN: ${JWT_ACCESS_TTL_MIN:-15}
+      SESSAO_INATIVIDADE_MIN: ${SESSAO_INATIVIDADE_MIN:-30}
+      SESSAO_ABSOLUTA_HORAS: ${SESSAO_ABSOLUTA_HORAS:-8}
+      # O TLS termina no proxy; a API recusa requisição que chegue em texto claro.
+      TLS_OBRIGATORIO: 'true'
+    expose:
+      - '3000'
     depends_on:
       db:
         condition: service_healthy
@@ -61,12 +66,30 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL:?defina VITE_API_URL}
     container_name: spe-hml-painel
-    ports:
-      - '8080:80'
+    expose:
+      - '80'
     depends_on:
       - api
+    restart: unless-stopped
+
+  # Único serviço publicado: termina o TLS e repassa X-Forwarded-Proto.
+  # API e painel não ficam expostos diretamente.
+  proxy:
+    image: nginx:1.27-alpine
+    container_name: spe-hml-proxy
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/proxy.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certificados:/etc/nginx/certificados:ro
+      - dados-certbot:/var/www/certbot
+    depends_on:
+      - api
+      - painel
     restart: unless-stopped
 
 volumes:
   dados-postgres-hml:
   dados-redis-hml:
+  dados-certbot:

@@ -14,9 +14,9 @@ Arquivo: [`wireframes.html`](./wireframes.html) — abrir no navegador.
 
 A observação da planilha é explícita: **aprovação necessária antes da Sprint 1**.
 
-- Status: **aguardando aprovação**
-- Aprovado por:
-- Data:
+- Status: **Aprovado**
+- Aprovado por: Jamínteles
+- Data: 23/08/2026
 - Ajustes pedidos:
 
 Enquanto este bloco não estiver preenchido, as telas da Sprint 1 não devem ser construídas

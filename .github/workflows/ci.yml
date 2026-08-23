@@ -22,6 +22,7 @@ jobs:
           --health-timeout 5s --health-retries 10
     env:
       DATABASE_URL: postgresql://spe:spe@localhost:5432/spe_test?schema=public
+      JWT_SECRET: segredo-de-ci-com-32-caracteres-ou-mais
     defaults:
       run:
         working-directory: apps/api
@@ -33,9 +34,13 @@ jobs:
       - run: npm ci
       - run: npx prisma validate
       - run: npx prisma migrate deploy
+      - run: npm run seed
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run test:e2e
+        env:
+          JWT_SECRET: segredo-de-ci-com-32-caracteres-ou-mais
       - run: npm run build
 
   painel:

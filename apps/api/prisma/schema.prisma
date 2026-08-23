@@ -51,9 +51,42 @@ model Usuario {
   formulariosCriados   Formulario[]   @relation("FormularioCriadoPor")
   respostasInvalidadas Resposta[]     @relation("RespostaInvalidadaPor")
   logs                 LogAuditoria[]
+  sessoes              Sessao[]
 
   @@index([perfilId])
   @@map("usuario")
+}
+
+/// Sessão autenticada. Guarda apenas o hash do refresh token: o valor em claro
+/// existe só no cliente. A sessão morre por inatividade, por expiração absoluta
+/// ou por encerramento explícito.
+model Sessao {
+  id               String        @id @default(uuid()) @db.Uuid
+  usuarioId        String        @map("usuario_id") @db.Uuid
+  refreshTokenHash String        @map("refresh_token_hash") @db.Char(64)
+  criadaEm         DateTime      @default(now()) @map("criada_em") @db.Timestamptz(6)
+  ultimaAtividadeEm DateTime     @default(now()) @map("ultima_atividade_em") @db.Timestamptz(6)
+  expiraEm         DateTime      @map("expira_em") @db.Timestamptz(6)
+  encerradaEm      DateTime?     @map("encerrada_em") @db.Timestamptz(6)
+  motivoEncerramento SessaoMotivo? @map("motivo_encerramento")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@unique([refreshTokenHash])
+  @@index([usuarioId, encerradaEm])
+  @@index([ultimaAtividadeEm])
+  @@map("sessao")
+}
+
+enum SessaoMotivo {
+  LOGOUT
+  INATIVIDADE
+  EXPIRACAO
+  SENHA_ALTERADA
+  PERMISSAO_ALTERADA
+  USUARIO_DESATIVADO
+
+  @@map("sessao_motivo")
 }
 
 // ---------------------------------------------------------------------------
@@ -262,6 +295,11 @@ enum AuditoriaAcao {
   LOGIN
   LOGIN_FALHA
   LOGOUT
+  SESSAO_EXPIRADA
+  USUARIO_CRIADO
+  USUARIO_ALTERADO
+  USUARIO_DESATIVADO
+  SENHA_ALTERADA
   PERMISSAO_ALTERADA
   FORMULARIO_CRIADO
   FORMULARIO_PUBLICADO

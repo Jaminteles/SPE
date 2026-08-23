@@ -3,10 +3,15 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
+import { AuditoriaModule } from './auditoria/auditoria.module';
+import { AuthModule } from './auth/auth.module';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { PerfisGuard } from './auth/guards/perfis.guard';
 import { validarAmbiente } from './config/env.config';
 import { HealthModule } from './health/health.module';
 import { MunicipiosModule } from './municipios/municipios.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { UsuariosModule } from './usuarios/usuarios.module';
 
 @Module({
   imports: [
@@ -26,9 +31,17 @@ import { PrismaModule } from './prisma/prisma.module';
       ],
     }),
     PrismaModule,
+    AuditoriaModule,
+    UsuariosModule,
+    AuthModule,
     HealthModule,
     MunicipiosModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    // A ordem importa: limite de requisições, depois identidade, depois permissão.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: PerfisGuard },
+  ],
 })
 export class AppModule {}
