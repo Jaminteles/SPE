@@ -80,6 +80,11 @@ depois da publicação: [docs/formularios.md](./docs/formularios.md).
 Fluxo do respondente (consentimento, município por código IBGE, preenchimento parcial em
 SQLite, reenvio automático): [docs/coleta.md](./docs/coleta.md).
 
+## Integridade
+
+Duplicidade, marcação automática de suspeita, invalidação manual e a agregação
+pré-calculada: [docs/integridade.md](./docs/integridade.md).
+
 ## Privacidade
 
 A resposta é anônima por construção: nome, CPF, telefone e e-mail do respondente não são

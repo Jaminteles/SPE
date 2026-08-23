@@ -27,8 +27,18 @@ function ehDefinitiva(falha: unknown): boolean {
   return falha instanceof ErroApi && falha.status >= 400 && falha.status < 500 && falha.status !== 429;
 }
 
+/** 409 de duplicidade: a resposta já está registrada — do ponto de vista do aparelho, sucesso. */
 function jaRegistrada(falha: unknown): boolean {
-  return falha instanceof ErroApi && falha.status === 409;
+  return (
+    falha instanceof ErroApi && falha.status === 409 && !falha.message.toLowerCase().includes('sess')
+  );
+}
+
+/** 409 de sessão: o pacote é válido, mas a sessão expirou ou já foi usada. */
+function sessaoInvalida(falha: unknown): boolean {
+  return (
+    falha instanceof ErroApi && falha.status === 409 && falha.message.toLowerCase().includes('sess')
+  );
 }
 
 /**
@@ -59,6 +69,12 @@ export const filaDeEnvio = {
         return true;
       }
 
+      // Sessão expirada num reenvio tardio: renova e tenta de novo agora.
+      // Sem isso a resposta seria descartada como falha definitiva.
+      if (sessaoInvalida(falha)) {
+        return this.renovarSessaoETentar(token, pacote, tentativas);
+      }
+
       if (ehDefinitiva(falha)) {
         // Reenviar não resolve: sai da fila para não girar para sempre.
         await bancoLocal.removerPendente(pacote.respostaId);
@@ -71,6 +87,42 @@ export const filaDeEnvio = {
         tentativas + 1,
         proximaTentativa(tentativas),
         motivo,
+      );
+      return false;
+    }
+  },
+
+  /**
+   * Renova a sessão de preenchimento e tenta uma vez. O `respostaId` continua
+   * o mesmo, então o servidor segue tratando o envio como idempotente.
+   */
+  async renovarSessaoETentar(
+    token: string,
+    pacote: PacoteDeEnvio,
+    tentativas: number,
+  ): Promise<boolean> {
+    try {
+      const publico = await servicoColeta.abrir(token);
+      const renovado: PacoteDeEnvio = { ...pacote, sessao: publico.sessao };
+      await bancoLocal.atualizarPacote(pacote.respostaId, renovado);
+
+      await servicoColeta.enviar(token, renovado);
+      await bancoLocal.removerPendente(pacote.respostaId);
+      return true;
+    } catch (falha) {
+      if (jaRegistrada(falha)) {
+        await bancoLocal.removerPendente(pacote.respostaId);
+        return true;
+      }
+      if (ehDefinitiva(falha)) {
+        await bancoLocal.removerPendente(pacote.respostaId);
+        throw falha;
+      }
+      await bancoLocal.registrarFalha(
+        pacote.respostaId,
+        tentativas + 1,
+        proximaTentativa(tentativas),
+        'sessão renovada sem sucesso',
       );
       return false;
     }

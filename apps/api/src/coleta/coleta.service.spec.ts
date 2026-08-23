@@ -2,9 +2,12 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Test } from '@nestjs/testing';
 import { FormularioStatus, PerguntaTipo, RespostaOrigem, RespostaStatus } from '@prisma/client';
 
+import { AnaliseDeSuspeitaService } from './analise-de-suspeita.service';
 import { ColetaRepository } from './coleta.repository';
 import { ColetaService } from './coleta.service';
 import { DispositivoService } from './dispositivo.service';
+import { SessaoColetaService } from './sessao-coleta.service';
+import { ProvedorAntiRobo } from './turnstile.provider';
 import { EnviarRespostaDto } from './dto/coleta.dto';
 
 describe('ColetaService', () => {
@@ -17,6 +20,14 @@ describe('ColetaService', () => {
     gravar: jest.fn(),
   };
   const dispositivos = { gerarHash: jest.fn() };
+  const sessoes = { abrir: jest.fn(), consumir: jest.fn(), contarUsosDaOrigem: jest.fn() };
+  const antiRobo = {
+    verificar: jest.fn(),
+    configurado: false,
+    obrigatorio: false,
+    exigirNoAplicativo: false,
+  };
+  const analise = { analisar: jest.fn(), janelaDaOrigemEmMinutos: 10 };
 
   const PERGUNTA_UNICA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
   const PERGUNTA_CONDICIONADA = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -91,6 +102,7 @@ describe('ColetaService', () => {
       municipioCodigoIbge: 2927408,
       dispositivoId: 'dispositivo-de-teste-1234',
       coletadoEm: new Date('2026-08-23T12:05:00.000Z'),
+      sessao: 'sessao-de-teste-com-token-longo',
       itens,
       ...ajustes,
     }) as EnviarRespostaDto;
@@ -113,12 +125,29 @@ describe('ColetaService', () => {
       recebidoEm: new Date(),
     }));
     dispositivos.gerarHash.mockReturnValue('a'.repeat(64));
+    sessoes.abrir.mockResolvedValue({
+      token: 'sessao-de-teste-com-token-longo',
+      iniciadaEm: new Date('2026-08-23T11:55:00.000Z'),
+      expiraEm: new Date('2026-08-23T13:55:00.000Z'),
+    });
+    sessoes.consumir.mockResolvedValue({
+      id: 'sessao-1',
+      formularioId: 'form-1',
+      iniciadaEm: new Date(Date.now() - 120_000),
+      origemHash: 'b'.repeat(64),
+    });
+    sessoes.contarUsosDaOrigem.mockResolvedValue(1);
+    antiRobo.verificar.mockResolvedValue({ aprovado: true, verificado: false });
+    analise.analisar.mockReturnValue({ marcacoes: [], motivo: null });
 
     const modulo = await Test.createTestingModule({
       providers: [
         ColetaService,
         { provide: ColetaRepository, useValue: repositorio },
         { provide: DispositivoService, useValue: dispositivos },
+        { provide: SessaoColetaService, useValue: sessoes },
+        { provide: ProvedorAntiRobo, useValue: antiRobo },
+        { provide: AnaliseDeSuspeitaService, useValue: analise },
       ],
     }).compile();
     servico = modulo.get(ColetaService);
@@ -126,7 +155,7 @@ describe('ColetaService', () => {
 
   describe('abrir', () => {
     it('devolve só o conteúdo público do formulário', async () => {
-      const publico = await servico.abrir('token-de-teste');
+      const publico = await servico.abrir('token-de-teste', '203.0.113.10');
 
       expect(publico.titulo).toBe('Pesquisa');
       expect(publico.perguntas).toHaveLength(4);
@@ -137,32 +166,40 @@ describe('ColetaService', () => {
 
     it('trata token desconhecido e rascunho da mesma forma', async () => {
       repositorio.buscarPorToken.mockResolvedValue(null);
-      await expect(servico.abrir('token-de-teste')).rejects.toBeInstanceOf(NotFoundException);
+      await expect(servico.abrir('token-de-teste', '203.0.113.10')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
 
       repositorio.buscarPorToken.mockResolvedValue(
         formulario({ status: FormularioStatus.RASCUNHO }),
       );
-      await expect(servico.abrir('token-de-teste')).rejects.toBeInstanceOf(NotFoundException);
+      await expect(servico.abrir('token-de-teste', '203.0.113.10')).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
     });
 
     it('recusa pesquisa encerrada', async () => {
       repositorio.buscarPorToken.mockResolvedValue(
         formulario({ status: FormularioStatus.ENCERRADO }),
       );
-      await expect(servico.abrir('token-de-teste')).rejects.toBeInstanceOf(ConflictException);
+      await expect(servico.abrir('token-de-teste', '203.0.113.10')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
     });
 
     it('recusa pesquisa fora do período de vigência', async () => {
       repositorio.buscarPorToken.mockResolvedValue(
         formulario({ vigenciaFim: new Date('2020-01-01T00:00:00.000Z') }),
       );
-      await expect(servico.abrir('token-de-teste')).rejects.toBeInstanceOf(ConflictException);
+      await expect(servico.abrir('token-de-teste', '203.0.113.10')).rejects.toBeInstanceOf(
+        ConflictException,
+      );
     });
   });
 
   describe('envio', () => {
     it('grava resposta completa com município e data/hora', async () => {
-      await servico.enviar('token-de-teste', envio(respostaValida));
+      await servico.enviar('token-de-teste', '203.0.113.10', envio(respostaValida));
 
       const gravado = repositorio.gravar.mock.calls[0][0];
       expect(gravado.municipioCodigoIbge).toBe(2927408);
@@ -173,7 +210,7 @@ describe('ColetaService', () => {
     });
 
     it('guarda apenas o hash do dispositivo, nunca o identificador em claro', async () => {
-      await servico.enviar('token-de-teste', envio(respostaValida));
+      await servico.enviar('token-de-teste', '203.0.113.10', envio(respostaValida));
 
       const gravado = repositorio.gravar.mock.calls[0][0];
       expect(dispositivos.gerarHash).toHaveBeenCalledWith('dispositivo-de-teste-1234');
@@ -183,22 +220,35 @@ describe('ColetaService', () => {
 
     it('marca para conferência quando o município é de fora da Bahia', async () => {
       repositorio.municipioExiste.mockResolvedValue({ codigoIbge: 3550308, uf: 'SP' });
+      // A decisão de status é da análise de suspeita, que recebe o sinal do serviço.
+      analise.analisar.mockReturnValue({
+        marcacoes: ['MUNICIPIO_FORA_DA_BAHIA'],
+        motivo: 'município fora da Bahia',
+      });
 
       await servico.enviar(
         'token-de-teste',
+        '203.0.113.10',
         envio(respostaValida, { municipioCodigoIbge: 3550308 }),
       );
 
       const gravado = repositorio.gravar.mock.calls[0][0];
+      expect(analise.analisar).toHaveBeenCalledWith(
+        expect.objectContaining({ municipioForaDaBahia: true }),
+      );
       expect(gravado.status).toBe(RespostaStatus.EM_CONFERENCIA);
-      expect(gravado.motivoConferencia).toContain('fora da BA');
+      expect(gravado.motivoConferencia).toContain('fora da Bahia');
     });
 
     it('recusa município inexistente na base do IBGE', async () => {
       repositorio.municipioExiste.mockResolvedValue(null);
 
       await expect(
-        servico.enviar('token-de-teste', envio(respostaValida, { municipioCodigoIbge: 9999999 })),
+        servico.enviar(
+          'token-de-teste',
+          '203.0.113.10',
+          envio(respostaValida, { municipioCodigoIbge: 9999999 }),
+        ),
       ).rejects.toBeInstanceOf(BadRequestException);
       expect(repositorio.gravar).not.toHaveBeenCalled();
     });
@@ -212,9 +262,9 @@ describe('ColetaService', () => {
       };
       repositorio.buscarResposta.mockResolvedValue(jaGravada);
 
-      await expect(servico.enviar('token-de-teste', envio(respostaValida))).resolves.toEqual(
-        jaGravada,
-      );
+      await expect(
+        servico.enviar('token-de-teste', '203.0.113.10', envio(respostaValida)),
+      ).resolves.toEqual(jaGravada);
       expect(repositorio.gravar).not.toHaveBeenCalled();
     });
   });
@@ -224,13 +274,14 @@ describe('ColetaService', () => {
       await expect(
         servico.enviar(
           'token-de-teste',
+          '203.0.113.10',
           envio([{ perguntaId: PERGUNTA_UNICA, alternativaId: ALT_SIM }]),
         ),
       ).rejects.toThrow('obrigatória');
     });
 
     it('aceita pergunta opcional em branco', async () => {
-      await servico.enviar('token-de-teste', envio(respostaValida));
+      await servico.enviar('token-de-teste', '203.0.113.10', envio(respostaValida));
       expect(repositorio.gravar).toHaveBeenCalled();
     });
 
@@ -238,6 +289,7 @@ describe('ColetaService', () => {
       await expect(
         servico.enviar(
           'token-de-teste',
+          '203.0.113.10',
           envio([
             { perguntaId: PERGUNTA_UNICA, alternativaId: ALT_A },
             { perguntaId: PERGUNTA_ESCALA, valorNumero: 5 },
@@ -250,6 +302,7 @@ describe('ColetaService', () => {
       await expect(
         servico.enviar(
           'token-de-teste',
+          '203.0.113.10',
           envio([{ perguntaId: '77777777-7777-4777-8777-777777777777', valorTexto: 'oi' }]),
         ),
       ).rejects.toThrow('não é desta pesquisa');
@@ -259,6 +312,7 @@ describe('ColetaService', () => {
       await expect(
         servico.enviar(
           'token-de-teste',
+          '203.0.113.10',
           envio([
             { perguntaId: PERGUNTA_UNICA, alternativaId: ALT_SIM },
             { perguntaId: PERGUNTA_CONDICIONADA, alternativaId: ALT_A },
@@ -272,6 +326,7 @@ describe('ColetaService', () => {
       await expect(
         servico.enviar(
           'token-de-teste',
+          '203.0.113.10',
           envio([
             { perguntaId: PERGUNTA_UNICA, alternativaId: ALT_SIM },
             { perguntaId: PERGUNTA_UNICA, alternativaId: ALT_NAO },
@@ -285,6 +340,7 @@ describe('ColetaService', () => {
       await expect(
         servico.enviar(
           'token-de-teste',
+          '203.0.113.10',
           envio(respostaValida, { coletadoEm: new Date(Date.now() + 5 * 24 * 3600 * 1000) }),
         ),
       ).rejects.toThrow('futuro');
@@ -296,6 +352,7 @@ describe('ColetaService', () => {
       await expect(
         servico.enviar(
           'token-de-teste',
+          '203.0.113.10',
           envio([
             { perguntaId: PERGUNTA_UNICA, alternativaId: ALT_NAO },
             { perguntaId: PERGUNTA_CONDICIONADA, alternativaId: ALT_A },
@@ -308,6 +365,7 @@ describe('ColetaService', () => {
     it('não exige a pergunta condicionada quando a condição não foi atendida', async () => {
       await servico.enviar(
         'token-de-teste',
+        '203.0.113.10',
         envio([
           { perguntaId: PERGUNTA_UNICA, alternativaId: ALT_NAO },
           { perguntaId: PERGUNTA_ESCALA, valorNumero: 5 },
@@ -322,6 +380,7 @@ describe('ColetaService', () => {
       await expect(
         servico.enviar(
           'token-de-teste',
+          '203.0.113.10',
           envio([
             { perguntaId: PERGUNTA_UNICA, alternativaId: ALT_SIM },
             { perguntaId: PERGUNTA_ESCALA, valorNumero: 5 },

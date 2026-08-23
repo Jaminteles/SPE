@@ -17,6 +17,10 @@ export interface AppEnv {
   TLS_OBRIGATORIO: boolean;
   COLETA_BASE_URL: string;
   DEVICE_HASH_PEPPER: string;
+  REDIS_URL: string | undefined;
+  TURNSTILE_SECRET: string | undefined;
+  TURNSTILE_OBRIGATORIO: boolean;
+  TURNSTILE_EXIGIR_NO_APLICATIVO: boolean;
 }
 
 const AMBIENTES = ['development', 'test', 'production'] as const;
@@ -107,5 +111,10 @@ export function validarAmbiente(bruto: Record<string, unknown>): AppEnv {
     // Base do link público de coleta, sem barra no fim.
     COLETA_BASE_URL: String(bruto.COLETA_BASE_URL ?? 'http://localhost:5173').replace(/\/+$/, ''),
     DEVICE_HASH_PEPPER: pepper,
+    REDIS_URL: (bruto.REDIS_URL as string | undefined) || undefined,
+    // Sem segredo o desafio fica desligado; em produção, ligue o obrigatório.
+    TURNSTILE_SECRET: (bruto.TURNSTILE_SECRET as string | undefined) || undefined,
+    TURNSTILE_OBRIGATORIO: booleano(bruto.TURNSTILE_OBRIGATORIO, false),
+    TURNSTILE_EXIGIR_NO_APLICATIVO: booleano(bruto.TURNSTILE_EXIGIR_NO_APLICATIVO, false),
   };
 }

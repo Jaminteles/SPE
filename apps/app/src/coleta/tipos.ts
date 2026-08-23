@@ -25,6 +25,10 @@ export interface FormularioPublico {
   titulo: string;
   descricao: string | null;
   token: string;
+  /** Sessão de preenchimento: marca o início e é de uso único. */
+  sessao: string;
+  sessaoExpiraEm: string;
+  exigeDesafioAntiRobo: boolean;
   perguntas: PerguntaPublica[];
 }
 
@@ -47,6 +51,7 @@ export interface ItemParaEnvio {
 /** Pacote enviado à API. Nenhum campo identifica o respondente. */
 export interface PacoteDeEnvio {
   respostaId: string;
+  sessao: string;
   consentimento: true;
   consentimentoEm: string;
   municipioCodigoIbge: number;

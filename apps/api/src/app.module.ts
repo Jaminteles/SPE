@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
+import { AgregacaoModule } from './agregacao/agregacao.module';
 import { AuditoriaModule } from './auditoria/auditoria.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -13,6 +14,7 @@ import { FormulariosModule } from './formularios/formularios.module';
 import { HealthModule } from './health/health.module';
 import { MunicipiosModule } from './municipios/municipios.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { RespostasModule } from './respostas/respostas.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 
 @Module({
@@ -38,6 +40,8 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     AuthModule,
     FormulariosModule,
     ColetaModule,
+    RespostasModule,
+    AgregacaoModule,
     HealthModule,
     MunicipiosModule,
   ],

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Ip, Param, Post } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 
@@ -43,8 +43,10 @@ export class ColetaController {
   @ApiOkResponse({ type: FormularioPublicoResponse })
   async abrir(
     @Param('token', TokenDeColetaPipe) token: string,
+    @Ip() ip: string,
   ): Promise<FormularioPublicoResponse> {
-    return this.servico.abrir(token);
+    // O IP nunca é persistido em claro: vira HMAC para medir volume por origem.
+    return this.servico.abrir(token, ip);
   }
 
   @Throttle({ default: { limit: LIMITE_ENVIO, ttl: JANELA_MS } })
@@ -55,8 +57,9 @@ export class ColetaController {
   async enviar(
     @Param('token', TokenDeColetaPipe) token: string,
     @Body() dto: EnviarRespostaDto,
+    @Ip() ip: string,
   ): Promise<RespostaRegistradaResponse> {
-    const gravada = await this.servico.enviar(token, dto);
+    const gravada = await this.servico.enviar(token, ip, dto);
 
     // O protocolo é o id que o próprio aparelho gerou: serve para o respondente
     // conferir o envio e não diz nada sobre quem ele é.

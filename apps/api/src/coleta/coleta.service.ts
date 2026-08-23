@@ -11,6 +11,7 @@ import {
   RespostaOrigem,
   RespostaStatus,
 } from '@prisma/client';
+import { ForbiddenException } from '@nestjs/common';
 
 import {
   ColetaRepository,
@@ -19,7 +20,10 @@ import {
   PerguntaDoFormulario,
   RespostaGravada,
 } from './coleta.repository';
+import { AnaliseDeSuspeitaService } from './analise-de-suspeita.service';
 import { DispositivoService } from './dispositivo.service';
+import { SessaoColetaService } from './sessao-coleta.service';
+import { ProvedorAntiRobo } from './turnstile.provider';
 import { EnviarRespostaDto, FormularioPublicoResponse, ItemDeRespostaDto } from './dto/coleta.dto';
 
 const UF_DA_PESQUISA = 'BA';
@@ -29,30 +33,52 @@ export class ColetaService {
   constructor(
     private readonly repositorio: ColetaRepository,
     private readonly dispositivos: DispositivoService,
+    private readonly sessoes: SessaoColetaService,
+    private readonly antiRobo: ProvedorAntiRobo,
+    private readonly analise: AnaliseDeSuspeitaService,
   ) {}
 
   /**
    * Formulário aberto pelo link público. Devolve só o que a tela de coleta
    * precisa — nenhum dado administrativo atravessa.
    */
-  async abrir(token: string): Promise<FormularioPublicoResponse> {
+  async abrir(token: string, ip: string | undefined): Promise<FormularioPublicoResponse> {
     const formulario = await this.exigirEmColeta(token);
+    const sessao = await this.sessoes.abrir(formulario.id, ip);
 
     return {
       titulo: formulario.titulo,
       descricao: formulario.descricao,
       token,
+      sessao: sessao.token,
+      sessaoExpiraEm: sessao.expiraEm,
+      exigeDesafioAntiRobo: this.antiRobo.configurado,
       perguntas: formulario.perguntas,
     };
   }
 
-  async enviar(token: string, dto: EnviarRespostaDto): Promise<RespostaGravada> {
+  async enviar(
+    token: string,
+    ip: string | undefined,
+    dto: EnviarRespostaDto,
+  ): Promise<RespostaGravada> {
     const formulario = await this.exigirEmColeta(token);
 
     // Reenvio do mesmo pacote: devolve o que já foi gravado, sem duplicar.
+    // Vem antes de consumir a sessão, senão o reenvio legítimo seria barrado.
     const jaGravada = await this.repositorio.buscarResposta(dto.respostaId);
     if (jaGravada) {
       return jaGravada;
+    }
+
+    await this.exigirDesafioAntiRobo(dto, ip);
+
+    // Sessão de uso único: fecha replay e dá o início real do preenchimento.
+    const sessao = await this.sessoes.consumir(dto.sessao, formulario.id);
+    if (!sessao) {
+      throw new ConflictException(
+        'Sessão de preenchimento inválida ou já usada. Abra a pesquisa novamente.',
+      );
     }
 
     const municipio = await this.repositorio.municipioExiste(dto.municipioCodigoIbge);
@@ -66,23 +92,71 @@ export class ColetaService {
     // Município fora da Bahia não é descartado: entra para conferência manual.
     const foraDaBahia = municipio.uf !== UF_DA_PESQUISA;
 
+    // A duração é medida pelo servidor: o relógio do aparelho não é confiável.
+    const recebidoEm = Date.now();
+    const duracaoSegundos = Math.max(
+      0,
+      Math.round((recebidoEm - sessao.iniciadaEm.getTime()) / 1000),
+    );
+
+    const usosDaOrigem = await this.sessoes.contarUsosDaOrigem(
+      sessao.origemHash,
+      formulario.id,
+      this.analise.janelaDaOrigemEmMinutos,
+    );
+
+    const suspeita = this.analise.analisar({
+      duracaoSegundos,
+      perguntas: formulario.perguntas,
+      itens,
+      usosDaOrigemNaJanela: usosDaOrigem,
+      municipioForaDaBahia: foraDaBahia,
+    });
+
     try {
       return await this.repositorio.gravar({
         id: dto.respostaId,
         formularioId: formulario.id,
         municipioCodigoIbge: municipio.codigoIbge,
-        status: foraDaBahia ? RespostaStatus.EM_CONFERENCIA : RespostaStatus.VALIDA,
+        // Marcado não é descartado: vai para conferência humana.
+        status:
+          suspeita.marcacoes.length > 0 ? RespostaStatus.EM_CONFERENCIA : RespostaStatus.VALIDA,
         origem: dto.origem ?? RespostaOrigem.APLICATIVO,
         dispositivoHash: this.dispositivos.gerarHash(dto.dispositivoId),
         consentimentoEm: dto.consentimentoEm,
+        iniciadoEm: sessao.iniciadaEm,
         coletadoEm: dto.coletadoEm,
+        duracaoSegundos,
+        marcacoes: suspeita.marcacoes,
         latitude: dto.latitude ?? null,
         longitude: dto.longitude ?? null,
-        motivoConferencia: foraDaBahia ? `Município fora da ${UF_DA_PESQUISA}.` : null,
+        motivoConferencia: suspeita.motivo,
         itens,
       });
     } catch (erro) {
       return this.traduzirFalhaDeGravacao(erro, dto.respostaId);
+    }
+  }
+
+  /**
+   * O desafio anti-robô protege a origem web. No aplicativo ele é opcional por
+   * configuração: lá o controle é o par sessão + dispositivo, e o widget do
+   * Turnstile exigiria um navegador embutido.
+   */
+  private async exigirDesafioAntiRobo(
+    dto: EnviarRespostaDto,
+    ip: string | undefined,
+  ): Promise<void> {
+    const origem = dto.origem ?? RespostaOrigem.APLICATIVO;
+    const dispensado = origem === RespostaOrigem.APLICATIVO && !this.antiRobo.exigirNoAplicativo;
+
+    if (dispensado && !dto.desafioAntiRobo) {
+      return;
+    }
+
+    const resultado = await this.antiRobo.verificar(dto.desafioAntiRobo, ip);
+    if (!resultado.aprovado) {
+      throw new ForbiddenException(resultado.motivo);
     }
   }
 

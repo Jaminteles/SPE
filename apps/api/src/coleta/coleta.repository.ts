@@ -1,5 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { FormularioStatus, Prisma, RespostaOrigem, RespostaStatus } from '@prisma/client';
+import {
+  FormularioStatus,
+  Prisma,
+  RespostaMarcacao,
+  RespostaOrigem,
+  RespostaStatus,
+} from '@prisma/client';
 
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -134,7 +140,10 @@ export class ColetaRepository {
     origem: RespostaOrigem;
     dispositivoHash: string;
     consentimentoEm: Date;
+    iniciadoEm: Date;
     coletadoEm: Date;
+    duracaoSegundos: number;
+    marcacoes: RespostaMarcacao[];
     latitude: number | null;
     longitude: number | null;
     motivoConferencia: string | null;
@@ -150,7 +159,10 @@ export class ColetaRepository {
           origem: dados.origem,
           dispositivoHash: dados.dispositivoHash,
           consentimentoEm: dados.consentimentoEm,
+          iniciadoEm: dados.iniciadoEm,
           coletadoEm: dados.coletadoEm,
+          duracaoSegundos: dados.duracaoSegundos,
+          marcacoes: dados.marcacoes,
           latitude: dados.latitude,
           longitude: dados.longitude,
           motivoConferencia: dados.motivoConferencia,

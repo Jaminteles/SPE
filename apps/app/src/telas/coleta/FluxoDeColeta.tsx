@@ -253,6 +253,8 @@ export function FluxoDeColeta({ aoSair }: Props) {
     try {
       const pacote: PacoteDeEnvio = {
         respostaId,
+        // A sessão vem da abertura da pesquisa e mede o início do preenchimento.
+        sessao: formulario.sessao,
         consentimento: true,
         consentimentoEm,
         municipioCodigoIbge: municipio,

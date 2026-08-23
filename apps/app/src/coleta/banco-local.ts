@@ -326,6 +326,15 @@ export const bancoLocal = {
     );
   },
 
+  /** Troca o pacote guardado — usado quando a sessão expira e precisa renovar. */
+  async atualizarPacote(respostaId: string, pacote: PacoteDeEnvio): Promise<void> {
+    const banco = await abrir();
+    await banco.runAsync('UPDATE envio_pendente SET pacote = ? WHERE resposta_id = ?', [
+      JSON.stringify(pacote),
+      respostaId,
+    ]);
+  },
+
   async removerPendente(respostaId: string): Promise<void> {
     const banco = await abrir();
     await banco.runAsync('DELETE FROM envio_pendente WHERE resposta_id = ?', [respostaId]);

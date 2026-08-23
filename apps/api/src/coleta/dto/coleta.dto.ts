@@ -78,6 +78,21 @@ export class EnviarRespostaDto {
   @Equals(true, { message: 'É preciso aceitar o termo de consentimento.' })
   consentimento!: boolean;
 
+  @ApiProperty({
+    description: 'Token da sessão de preenchimento, devolvido na abertura da pesquisa.',
+  })
+  @IsString()
+  @Length(20, 100)
+  sessao!: string;
+
+  @ApiPropertyOptional({
+    description: 'Token do desafio anti-robô (Cloudflare Turnstile), quando exigido.',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(1, 4000)
+  desafioAntiRobo?: string;
+
   @ApiProperty({ description: 'Momento do aceite (ISO 8601).' })
   @Transform(paraData)
   @IsDate()
@@ -165,6 +180,18 @@ export class FormularioPublicoResponse {
   @ApiProperty({ nullable: true }) descricao!: string | null;
   @ApiProperty({ description: 'Token público do link. É por ele que a resposta é enviada.' })
   token!: string;
+
+  @ApiProperty({
+    description:
+      'Token da sessão de preenchimento. Marca o início do preenchimento e é de uso único.',
+  })
+  sessao!: string;
+
+  @ApiProperty({ description: 'Momento em que a sessão expira (ISO 8601).' })
+  sessaoExpiraEm!: Date;
+
+  @ApiProperty({ description: 'Se a origem precisa resolver o desafio anti-robô.' })
+  exigeDesafioAntiRobo!: boolean;
 
   @ApiProperty({ type: [PerguntaPublicaResponse] })
   perguntas!: PerguntaPublicaResponse[];

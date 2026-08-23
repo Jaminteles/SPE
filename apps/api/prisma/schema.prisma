@@ -111,9 +111,10 @@ model Formulario {
   criadoEm       DateTime         @default(now()) @map("criado_em") @db.Timestamptz(6)
   atualizadoEm   DateTime         @updatedAt @map("atualizado_em") @db.Timestamptz(6)
 
-  criadoPor Usuario?   @relation("FormularioCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
-  perguntas Pergunta[]
-  respostas Resposta[]
+  criadoPor     Usuario?       @relation("FormularioCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  perguntas     Pergunta[]
+  respostas     Resposta[]
+  sessoesColeta SessaoColeta[]
 
   @@index([status])
   @@index([criadoPorId])
@@ -209,6 +210,33 @@ model Municipio {
 }
 
 // ---------------------------------------------------------------------------
+// Coleta
+// ---------------------------------------------------------------------------
+
+/// Sessão de preenchimento, aberta quando o respondente abre o link.
+/// Marca o início real do preenchimento (medido pelo servidor, não declarado
+/// pelo aparelho) e é de uso único: o mesmo token não grava duas respostas.
+///
+/// É dado técnico de duplicidade — expurgado no encerramento da coleta, junto
+/// com o hash de dispositivo. Nada aqui identifica o respondente: o hash de
+/// origem é HMAC do endereço de rede, guardado só para detectar volume anômalo.
+model SessaoColeta {
+  id           String    @id @default(uuid()) @db.Uuid
+  formularioId String    @map("formulario_id") @db.Uuid
+  tokenHash    String    @unique @map("token_hash") @db.Char(64)
+  origemHash   String?   @map("origem_hash") @db.Char(64)
+  iniciadaEm   DateTime  @default(now()) @map("iniciada_em") @db.Timestamptz(6)
+  expiraEm     DateTime  @map("expira_em") @db.Timestamptz(6)
+  usadaEm      DateTime? @map("usada_em") @db.Timestamptz(6)
+
+  formulario Formulario @relation(fields: [formularioId], references: [id], onDelete: Cascade)
+
+  @@index([formularioId, iniciadaEm])
+  @@index([origemHash, iniciadaEm])
+  @@map("sessao_coleta")
+}
+
+// ---------------------------------------------------------------------------
 // Resposta
 // ---------------------------------------------------------------------------
 
@@ -232,12 +260,21 @@ model Resposta {
   latitude  Decimal? @db.Decimal(9, 6)
   longitude Decimal? @db.Decimal(9, 6)
 
-  coletadoEm        DateTime  @map("coletado_em") @db.Timestamptz(6)
-  recebidoEm        DateTime  @default(now()) @map("recebido_em") @db.Timestamptz(6)
-  motivoConferencia String?   @map("motivo_conferencia") @db.VarChar(240)
-  invalidadaEm      DateTime? @map("invalidada_em") @db.Timestamptz(6)
-  invalidadaPorId   String?   @map("invalidada_por_id") @db.Uuid
-  motivoInvalidacao String?   @map("motivo_invalidacao") @db.VarChar(240)
+  /// Início do preenchimento, medido pelo servidor na abertura da sessão.
+  iniciadoEm DateTime @map("iniciado_em") @db.Timestamptz(6)
+
+  coletadoEm DateTime @map("coletado_em") @db.Timestamptz(6)
+  recebidoEm DateTime @default(now()) @map("recebido_em") @db.Timestamptz(6)
+
+  /// Tempo de preenchimento em segundos, do início da sessão ao envio.
+  duracaoSegundos Int @map("duracao_segundos")
+
+  /// Marcações automáticas que levaram a resposta para conferência.
+  marcacoes         RespostaMarcacao[] @map("marcacoes")
+  motivoConferencia String?            @map("motivo_conferencia") @db.VarChar(240)
+  invalidadaEm      DateTime?          @map("invalidada_em") @db.Timestamptz(6)
+  invalidadaPorId   String?            @map("invalidada_por_id") @db.Uuid
+  motivoInvalidacao String?            @map("motivo_invalidacao") @db.VarChar(240)
 
   /// Data a partir da qual a resposta entra na rotina automática de expurgo (4 anos).
   expurgarApos DateTime? @map("expurgar_apos") @db.Timestamptz(6)
@@ -250,6 +287,8 @@ model Resposta {
   @@index([formularioId, status])
   @@index([formularioId, municipioCodigoIbge, status])
   @@index([recebidoEm])
+  @@index([formularioId, duracaoSegundos])
+  @@index([marcacoes], map: "ix_resposta_marcacoes", type: Gin)
   @@map("resposta")
 }
 
@@ -266,6 +305,16 @@ enum RespostaOrigem {
   WEB
 
   @@map("resposta_origem")
+}
+
+/// Motivos automáticos de suspeita. Marcar não descarta: manda para conferência.
+enum RespostaMarcacao {
+  TEMPO_MUITO_BAIXO
+  PADRAO_REPETITIVO
+  VOLUME_ANOMALO_DA_ORIGEM
+  MUNICIPIO_FORA_DA_BAHIA
+
+  @@map("resposta_marcacao")
 }
 
 /// Item da resposta. Nunca achatar em JSON: a apuração depende do dado estruturado.
@@ -326,6 +375,8 @@ enum AuditoriaAcao {
   FORMULARIO_PUBLICADO
   COLETA_ENCERRADA
   RESPOSTA_INVALIDADA
+  RESPOSTA_REVALIDADA
+  AGREGACAO_ATUALIZADA
   EXPORTACAO_GERADA
 
   @@map("auditoria_acao")

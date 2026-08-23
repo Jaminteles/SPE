@@ -41,8 +41,22 @@ describe('Coleta pública (e2e)', () => {
   const comoAdmin = () => ({ Authorization: `Bearer ${tokenAdmin}` });
   const coleta = (sufixo = '') => `/api/v1/coleta/${tokenPublico}${sufixo}`;
 
+  /** Monta o pacote já com uma sessão válida. */
+  const pacoteComSessao = async (itens: unknown[], ajustes: Record<string, unknown> = {}) => ({
+    ...pacote(itens, ajustes),
+    sessao: await abrirSessao(),
+  });
+
+  /** Cada envio precisa de uma sessão própria: ela é de uso único. */
+  const abrirSessao = async () => {
+    const resposta = await request(app.getHttpServer()).get(coleta()).expect(200);
+    return resposta.body.sessao as string;
+  };
+
   const pacote = (itens: unknown[], ajustes: Record<string, unknown> = {}) => ({
     respostaId: randomUUID(),
+    // Sessao de preenchimento: sobrescrita por pacoteComSessao quando o teste precisa de uma valida.
+    sessao: 'sessao-de-preenchimento-invalida',
     consentimento: true,
     consentimentoEm: new Date(Date.now() - 60_000).toISOString(),
     municipioCodigoIbge: CODIGO_SALVADOR,
@@ -196,7 +210,7 @@ describe('Coleta pública (e2e)', () => {
 
   describe('envio de resposta', () => {
     it('grava resposta completa com município e data/hora', async () => {
-      const enviado = pacote([
+      const enviado = await pacoteComSessao([
         { perguntaId: perguntaVoto, alternativaId: alternativaSim },
         { perguntaId: perguntaCandidato, alternativaId: alternativaCandidato },
         { perguntaId: perguntaNota, valorNumero: 8 },
@@ -235,7 +249,7 @@ describe('Coleta pública (e2e)', () => {
     });
 
     it('guarda o dispositivo apenas como hash, e nunca o devolve', async () => {
-      const enviado = pacote([
+      const enviado = await pacoteComSessao([
         { perguntaId: perguntaVoto, alternativaId: alternativaNao },
         { perguntaId: perguntaNota, valorNumero: 3 },
       ]);
@@ -257,7 +271,7 @@ describe('Coleta pública (e2e)', () => {
     });
 
     it('aceita geolocalização opcional', async () => {
-      const enviado = pacote(
+      const enviado = await pacoteComSessao(
         [
           { perguntaId: perguntaVoto, alternativaId: alternativaNao },
           { perguntaId: perguntaNota, valorNumero: 5 },
@@ -276,7 +290,7 @@ describe('Coleta pública (e2e)', () => {
     });
 
     it('reenvio do mesmo pacote é idempotente', async () => {
-      const enviado = pacote([
+      const enviado = await pacoteComSessao([
         { perguntaId: perguntaVoto, alternativaId: alternativaNao },
         { perguntaId: perguntaNota, valorNumero: 6 },
       ]);
@@ -306,12 +320,12 @@ describe('Coleta pública (e2e)', () => {
 
       await request(app.getHttpServer())
         .post(coleta('/respostas'))
-        .send(pacote(itens, { dispositivoId }))
+        .send(await pacoteComSessao(itens, { dispositivoId }))
         .expect(201);
 
       await request(app.getHttpServer())
         .post(coleta('/respostas'))
-        .send(pacote(itens, { dispositivoId }))
+        .send(await pacoteComSessao(itens, { dispositivoId }))
         .expect(409);
     });
   });
@@ -321,7 +335,7 @@ describe('Coleta pública (e2e)', () => {
       await request(app.getHttpServer())
         .post(coleta('/respostas'))
         .send(
-          pacote(
+          await pacoteComSessao(
             [
               { perguntaId: perguntaVoto, alternativaId: alternativaNao },
               { perguntaId: perguntaNota, valorNumero: 5 },
@@ -336,7 +350,7 @@ describe('Coleta pública (e2e)', () => {
       await request(app.getHttpServer())
         .post(coleta('/respostas'))
         .send(
-          pacote(
+          await pacoteComSessao(
             [
               { perguntaId: perguntaVoto, alternativaId: alternativaNao },
               { perguntaId: perguntaNota, valorNumero: 5 },
@@ -350,7 +364,7 @@ describe('Coleta pública (e2e)', () => {
     it('recusa pergunta obrigatória em branco', async () => {
       await request(app.getHttpServer())
         .post(coleta('/respostas'))
-        .send(pacote([{ perguntaId: perguntaVoto, alternativaId: alternativaNao }]))
+        .send(await pacoteComSessao([{ perguntaId: perguntaVoto, alternativaId: alternativaNao }]))
         .expect(400);
     });
 
@@ -358,7 +372,7 @@ describe('Coleta pública (e2e)', () => {
       await request(app.getHttpServer())
         .post(coleta('/respostas'))
         .send(
-          pacote([
+          await pacoteComSessao([
             { perguntaId: perguntaVoto, alternativaId: alternativaNao },
             { perguntaId: perguntaCandidato, alternativaId: alternativaCandidato },
             { perguntaId: perguntaNota, valorNumero: 5 },
@@ -371,7 +385,7 @@ describe('Coleta pública (e2e)', () => {
       await request(app.getHttpServer())
         .post(coleta('/respostas'))
         .send(
-          pacote([
+          await pacoteComSessao([
             { perguntaId: perguntaVoto, alternativaId: alternativaNao },
             { perguntaId: perguntaNota, valorNumero: 99 },
           ]),
@@ -383,7 +397,7 @@ describe('Coleta pública (e2e)', () => {
       await request(app.getHttpServer())
         .post(coleta('/respostas'))
         .send(
-          pacote(
+          await pacoteComSessao(
             [
               { perguntaId: perguntaVoto, alternativaId: alternativaNao },
               { perguntaId: perguntaNota, valorNumero: 5 },
@@ -416,6 +430,7 @@ describe('Coleta pública (e2e)', () => {
 
       await request(app.getHttpServer()).get(coleta()).expect(409);
 
+      // A sessão nem chega a ser aberta: a pesquisa encerrada barra antes disso.
       await request(app.getHttpServer())
         .post(coleta('/respostas'))
         .send(
@@ -427,10 +442,13 @@ describe('Coleta pública (e2e)', () => {
         .expect(409);
     });
   });
+
   // Fica por último de propósito: esgota a cota de envios do endereço.
   describe('rate limit da rota pública', () => {
     it('corta rajada de envios do mesmo endereço', async () => {
-      const enviar = () =>
+      // Sem sessão de propósito: o que se testa aqui é o corte por origem,
+      // que acontece antes de qualquer validação de conteúdo.
+      const enviar = async () =>
         request(app.getHttpServer())
           .post(coleta('/respostas'))
           .send(
