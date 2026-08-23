@@ -2,7 +2,7 @@
 
 Sistema de Pesquisa Eleitoral — PostgreSQL 16 + Prisma.
 Corresponde ao item 5.2 do documento de escopo (task **S0-03**), com as ampliações das
-Sprints 1 (sessão) e 2 (tipo ESCALA na pergunta).
+Sprints 1 (sessão), 2 (tipo ESCALA na pergunta) e 3 (lógica condicional e token público).
 
 Fonte de verdade: [`apps/api/prisma/schema.prisma`](../apps/api/prisma/schema.prisma).
 Migrations em `apps/api/prisma/migrations/`.
@@ -140,6 +140,8 @@ migrations.
 | `ck_sessao_encerramento_coerente` | CHECK | encerramento de sessão com data e motivo juntos |
 | `ck_sessao_expiracao_posterior` | CHECK | expiração sempre depois da criação |
 | `ix_sessao_ativa` | índice parcial | varredura de sessões vivas |
+| `tg_pergunta_condicao_valida` | constraint trigger (deferido) | condição sempre no mesmo formulário, em pergunta de escolha única e de ordem anterior |
+| `ck_formulario_token_publico_coerente` | CHECK | rascunho sem token público; publicado e encerrado sempre com |
 
 ## Índices de apuração
 

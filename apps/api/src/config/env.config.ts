@@ -15,6 +15,7 @@ export interface AppEnv {
   SESSAO_INATIVIDADE_MIN: number;
   SESSAO_ABSOLUTA_HORAS: number;
   TLS_OBRIGATORIO: boolean;
+  COLETA_BASE_URL: string;
 }
 
 const AMBIENTES = ['development', 'test', 'production'] as const;
@@ -94,5 +95,7 @@ export function validarAmbiente(bruto: Record<string, unknown>): AppEnv {
     ),
     // Em produção o padrão é exigir HTTPS; o proxy encerra o TLS e informa o esquema.
     TLS_OBRIGATORIO: booleano(bruto.TLS_OBRIGATORIO, nodeEnv === 'production'),
+    // Base do link público de coleta, sem barra no fim.
+    COLETA_BASE_URL: String(bruto.COLETA_BASE_URL ?? 'http://localhost:5173').replace(/\/+$/, ''),
   };
 }

@@ -42,6 +42,8 @@ export interface Pergunta {
   escalaMaximo: number | null;
   escalaRotuloMinimo: string | null;
   escalaRotuloMaximo: string | null;
+  condicaoAlternativaId: string | null;
+  condicaoPerguntaId: string | null;
   alternativas: Alternativa[];
 }
 
@@ -56,6 +58,7 @@ export interface FormularioResumo {
   publicadoEm: string | null;
   encerradoEm: string | null;
   criadoEm: string;
+  tokenPublico: string | null;
   totalPerguntas: number;
 }
 
@@ -78,6 +81,14 @@ export interface EntradaPergunta {
   escalaMaximo?: number;
   escalaRotuloMinimo?: string;
   escalaRotuloMaximo?: string;
+  /** Alternativa que habilita a pergunta. null remove a condição. */
+  condicaoAlternativaId?: string | null;
+}
+
+export interface AcessoDeColeta {
+  url: string;
+  qrCodeSvg: string;
+  token: string;
 }
 
 const BASE = '/formularios';
@@ -105,6 +116,17 @@ export const servicoFormularios = {
 
   excluir(id: string): Promise<void> {
     return chamarComSessao(`${BASE}/${id}`, { metodo: 'DELETE' });
+  },
+
+  acesso(id: string): Promise<AcessoDeColeta> {
+    return chamarComSessao(`${BASE}/${id}/acesso`);
+  },
+
+  duplicar(id: string, titulo?: string): Promise<FormularioResumo> {
+    return chamarComSessao(`${BASE}/${id}/duplicar`, {
+      metodo: 'POST',
+      corpo: titulo ? { titulo } : {},
+    });
   },
 
   publicar(id: string): Promise<FormularioResumo> {

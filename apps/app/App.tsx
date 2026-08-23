@@ -6,6 +6,7 @@ import { UsuarioLogado, servicoAuth } from './src/auth/servico-auth';
 import { TelaFormulario } from './src/telas/admin/TelaFormulario';
 import { TelaFormularios } from './src/telas/admin/TelaFormularios';
 import { TelaPergunta } from './src/telas/admin/TelaPergunta';
+import { TelaPreVisualizacao } from './src/telas/admin/TelaPreVisualizacao';
 import { TelaInicio } from './src/telas/TelaInicio';
 import { TelaLogin } from './src/telas/TelaLogin';
 import { cores } from './src/ui/cores';
@@ -18,7 +19,8 @@ type Rota =
   | { tela: 'inicio' }
   | { tela: 'formularios' }
   | { tela: 'formulario'; formularioId: string }
-  | { tela: 'pergunta'; formularioId: string; perguntaId: string; editavel: boolean };
+  | { tela: 'pergunta'; formularioId: string; perguntaId: string; editavel: boolean }
+  | { tela: 'previa'; formularioId: string };
 
 export default function App() {
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
@@ -108,6 +110,8 @@ export default function App() {
           aoAbrirPergunta={(perguntaId, editavel) =>
             setRota({ tela: 'pergunta', formularioId: rota.formularioId, perguntaId, editavel })
           }
+          aoPreVisualizar={() => setRota({ tela: 'previa', formularioId: rota.formularioId })}
+          aoAbrirFormulario={(formularioId) => setRota({ tela: 'formulario', formularioId })}
           aoVoltar={voltarParaFormularios}
           aoPerderSessao={perderSessao}
         />
@@ -118,6 +122,14 @@ export default function App() {
           formularioId={rota.formularioId}
           perguntaId={rota.perguntaId}
           editavel={rota.editavel}
+          aoVoltar={() => setRota({ tela: 'formulario', formularioId: rota.formularioId })}
+          aoPerderSessao={perderSessao}
+        />
+      ) : null}
+
+      {rota.tela === 'previa' ? (
+        <TelaPreVisualizacao
+          formularioId={rota.formularioId}
           aoVoltar={() => setRota({ tela: 'formulario', formularioId: rota.formularioId })}
           aoPerderSessao={perderSessao}
         />

@@ -18,6 +18,7 @@ import { Perfis } from '../auth/decorators/perfis.decorator';
 import { UsuarioAtual } from '../auth/decorators/usuario-atual.decorator';
 import { UsuarioAutenticado } from '../auth/tipos';
 import {
+  AcessoResponse,
   AlternativaResponse,
   AtualizarAlternativaDto,
   AtualizarFormularioDto,
@@ -25,6 +26,7 @@ import {
   CriarAlternativaDto,
   CriarFormularioDto,
   CriarPerguntaDto,
+  DuplicarFormularioDto,
   FormularioResponse,
   FormularioResumoResponse,
   ListaFormulariosResponse,
@@ -107,6 +109,24 @@ export class FormulariosController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<FormularioResumoResponse> {
     return this.servico.publicar(id, autor.id);
+  }
+
+  @Get(':id/acesso')
+  @ApiOperation({ summary: 'Link público e QR Code do formulário em coleta.' })
+  @ApiOkResponse({ type: AcessoResponse })
+  async acesso(@Param('id', ParseUUIDPipe) id: string): Promise<AcessoResponse> {
+    return this.servico.acesso(id);
+  }
+
+  @Post(':id/duplicar')
+  @ApiOperation({ summary: 'Duplica o formulário como novo rascunho.' })
+  @ApiOkResponse({ type: FormularioResumoResponse })
+  async duplicar(
+    @UsuarioAtual() autor: UsuarioAutenticado,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: DuplicarFormularioDto,
+  ): Promise<FormularioResumoResponse> {
+    return this.servico.duplicar(id, dto.titulo, autor.id);
   }
 
   @Post(':id/encerrar')

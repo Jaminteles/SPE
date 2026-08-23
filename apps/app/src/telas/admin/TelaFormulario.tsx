@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 import {
+  AcessoDeColeta,
   Formulario,
   PerguntaTipo,
   ROTULO_DO_STATUS,
@@ -15,6 +26,8 @@ import { ehSessaoEncerrada, mensagemDeFalha } from './erros';
 interface Props {
   formularioId: string;
   aoAbrirPergunta: (perguntaId: string, editavel: boolean) => void;
+  aoPreVisualizar: () => void;
+  aoAbrirFormulario: (formularioId: string) => void;
   aoVoltar: () => void;
   aoPerderSessao: () => void;
 }
@@ -30,6 +43,8 @@ const TIPOS: PerguntaTipo[] = [
 export function TelaFormulario({
   formularioId,
   aoAbrirPergunta,
+  aoPreVisualizar,
+  aoAbrirFormulario,
   aoVoltar,
   aoPerderSessao,
 }: Props) {
@@ -46,6 +61,8 @@ export function TelaFormulario({
   const [novaObrigatoria, setNovaObrigatoria] = useState(true);
   const [novaEscalaMinimo, setNovaEscalaMinimo] = useState('0');
   const [novaEscalaMaximo, setNovaEscalaMaximo] = useState('10');
+  const [novaCondicao, setNovaCondicao] = useState<string | null>(null);
+  const [acesso, setAcesso] = useState<AcessoDeColeta | null>(null);
 
   const editavel = formulario?.status === 'RASCUNHO';
 
@@ -57,6 +74,7 @@ export function TelaFormulario({
       setFormulario(dados);
       setTitulo(dados.titulo);
       setDescricao(dados.descricao ?? '');
+      setAcesso(dados.status === 'RASCUNHO' ? null : await servicoFormularios.acesso(dados.id));
     } catch (falha) {
       if (ehSessaoEncerrada(falha)) {
         aoPerderSessao();
@@ -109,12 +127,14 @@ export function TelaFormulario({
             escalaMaximo: Number(novaEscalaMaximo),
           }
         : {}),
+      ...(novaCondicao ? { condicaoAlternativaId: novaCondicao } : {}),
     };
 
     void executar(async () => {
       await servicoFormularios.criarPergunta(formularioId, entrada);
       setNovoEnunciado('');
       setNovaObrigatoria(true);
+      setNovaCondicao(null);
     });
   }
 
@@ -160,6 +180,48 @@ export function TelaFormulario({
     );
   }
 
+  function duplicar() {
+    Alert.alert(
+      'Duplicar esta pesquisa?',
+      'A cópia nasce em rascunho, com as mesmas perguntas e alternativas, e pode ser editada livremente.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Duplicar',
+          onPress: () => {
+            void (async () => {
+              setOcupado(true);
+              setErro(null);
+              try {
+                const copia = await servicoFormularios.duplicar(formularioId);
+                aoAbrirFormulario(copia.id);
+              } catch (falha) {
+                if (ehSessaoEncerrada(falha)) {
+                  aoPerderSessao();
+                  return;
+                }
+                setErro(mensagemDeFalha(falha));
+              } finally {
+                setOcupado(false);
+              }
+            })();
+          },
+        },
+      ],
+    );
+  }
+
+  async function compartilharLink() {
+    if (!acesso) {
+      return;
+    }
+    try {
+      await Share.share({ message: acesso.url });
+    } catch {
+      // Compartilhamento cancelado pelo usuário não é erro.
+    }
+  }
+
   function confirmarExclusaoDePergunta(perguntaId: string) {
     Alert.alert('Remover esta pergunta?', 'A ação não pode ser desfeita.', [
       { text: 'Cancelar', style: 'cancel' },
@@ -202,9 +264,32 @@ export function TelaFormulario({
       {!editavel ? (
         <Cartao>
           <Text style={estilos.avisoImutavel}>
-            Esta pesquisa já saiu do rascunho: perguntas e alternativas são imutáveis.
+            Esta pesquisa já saiu do rascunho: perguntas e alternativas são imutáveis. Para mudar o
+            conteúdo, duplique e trabalhe na cópia.
           </Text>
         </Cartao>
+      ) : null}
+
+      {acesso ? (
+        <>
+          <Text style={estilos.secao}>Link de coleta</Text>
+          <Cartao>
+            <Text style={estilos.link} selectable>
+              {acesso.url}
+            </Text>
+            <Text style={estilos.linkAjuda}>
+              O QR Code deste link é gerado pela API e fica disponível no painel para impressão.
+            </Text>
+            <View style={estilos.linhaBotoes}>
+              <View style={estilos.metade}>
+                <Botao titulo="Compartilhar link" variante="secundario" aoTocar={compartilharLink} />
+              </View>
+              <View style={estilos.metade}>
+                <Botao titulo="Pré-visualizar" variante="secundario" aoTocar={aoPreVisualizar} />
+              </View>
+            </View>
+          </Cartao>
+        </>
       ) : null}
 
       <Text style={estilos.secao}>Dados da pesquisa</Text>
@@ -245,6 +330,7 @@ export function TelaFormulario({
                 {pergunta.tipo === 'ESCALA' ? (
                   <Etiqueta texto={`${pergunta.escalaMinimo} a ${pergunta.escalaMaximo}`} />
                 ) : null}
+                {pergunta.condicaoAlternativaId ? <Etiqueta texto="Condicional" /> : null}
               </View>
             </TouchableOpacity>
           </View>
@@ -328,6 +414,47 @@ export function TelaFormulario({
             <Switch value={novaObrigatoria} onValueChange={setNovaObrigatoria} />
           </View>
 
+          <Text style={estilos.rotulo}>Quando esta pergunta aparece</Text>
+          <View style={estilos.tipos}>
+            <TouchableOpacity
+              onPress={() => setNovaCondicao(null)}
+              style={[estilos.tipo, novaCondicao === null && estilos.tipoSelecionado]}
+              accessibilityRole="button"
+            >
+              <Text
+                style={[estilos.tipoTexto, novaCondicao === null && estilos.tipoTextoSelecionado]}
+              >
+                Sempre
+              </Text>
+            </TouchableOpacity>
+
+            {formulario.perguntas
+              .filter((candidata) => candidata.tipo === 'UNICA_ESCOLHA')
+              .flatMap((candidata) =>
+                candidata.alternativas.map((alternativa) => (
+                  <TouchableOpacity
+                    key={alternativa.id}
+                    onPress={() => setNovaCondicao(alternativa.id)}
+                    style={[estilos.tipo, novaCondicao === alternativa.id && estilos.tipoSelecionado]}
+                    accessibilityRole="button"
+                  >
+                    <Text
+                      style={[
+                        estilos.tipoTexto,
+                        novaCondicao === alternativa.id && estilos.tipoTextoSelecionado,
+                      ]}
+                    >
+                      P{candidata.ordem}: {alternativa.texto}
+                    </Text>
+                  </TouchableOpacity>
+                )),
+              )}
+          </View>
+          <Text style={estilos.dicaCondicao}>
+            Escolhendo uma alternativa, a pergunta só aparece para quem tiver marcado ela. Só vale
+            para perguntas de escolha única já cadastradas antes desta.
+          </Text>
+
           <Botao
             titulo="Acrescentar pergunta"
             aoTocar={acrescentarPergunta}
@@ -338,6 +465,10 @@ export function TelaFormulario({
       ) : null}
 
       <View style={estilos.rodape}>
+        {editavel && formulario.perguntas.length > 0 ? (
+          <Botao titulo="Pré-visualizar" variante="secundario" aoTocar={aoPreVisualizar} />
+        ) : null}
+        <Botao titulo="Duplicar pesquisa" variante="secundario" aoTocar={duplicar} />
         {formulario.status === 'RASCUNHO' ? (
           <Botao
             titulo="Publicar pesquisa"
@@ -403,4 +534,7 @@ const estilos = StyleSheet.create({
   linhaBotoes: { flexDirection: 'row', gap: 10 },
   metade: { flex: 1 },
   rodape: { marginTop: 12, gap: 10 },
+  link: { fontSize: 13, color: cores.texto, marginBottom: 8 },
+  linkAjuda: { fontSize: 12, color: cores.suave, marginBottom: 12, lineHeight: 17 },
+  dicaCondicao: { fontSize: 12, color: cores.suave, marginBottom: 16, lineHeight: 17 },
 });

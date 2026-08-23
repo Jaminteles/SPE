@@ -61,13 +61,13 @@ model Usuario {
 /// existe só no cliente. A sessão morre por inatividade, por expiração absoluta
 /// ou por encerramento explícito.
 model Sessao {
-  id               String        @id @default(uuid()) @db.Uuid
-  usuarioId        String        @map("usuario_id") @db.Uuid
-  refreshTokenHash String        @map("refresh_token_hash") @db.Char(64)
-  criadaEm         DateTime      @default(now()) @map("criada_em") @db.Timestamptz(6)
-  ultimaAtividadeEm DateTime     @default(now()) @map("ultima_atividade_em") @db.Timestamptz(6)
-  expiraEm         DateTime      @map("expira_em") @db.Timestamptz(6)
-  encerradaEm      DateTime?     @map("encerrada_em") @db.Timestamptz(6)
+  id                 String        @id @default(uuid()) @db.Uuid
+  usuarioId          String        @map("usuario_id") @db.Uuid
+  refreshTokenHash   String        @map("refresh_token_hash") @db.Char(64)
+  criadaEm           DateTime      @default(now()) @map("criada_em") @db.Timestamptz(6)
+  ultimaAtividadeEm  DateTime      @default(now()) @map("ultima_atividade_em") @db.Timestamptz(6)
+  expiraEm           DateTime      @map("expira_em") @db.Timestamptz(6)
+  encerradaEm        DateTime?     @map("encerrada_em") @db.Timestamptz(6)
   motivoEncerramento SessaoMotivo? @map("motivo_encerramento")
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
@@ -103,6 +103,8 @@ model Formulario {
   versao         Int              @default(1)
   vigenciaInicio DateTime?        @map("vigencia_inicio") @db.Timestamptz(6)
   vigenciaFim    DateTime?        @map("vigencia_fim") @db.Timestamptz(6)
+  /// Identificador público do link de coleta. Nasce na publicação; nunca é o uuid interno.
+  tokenPublico   String?          @unique @map("token_publico") @db.VarChar(32)
   publicadoEm    DateTime?        @map("publicado_em") @db.Timestamptz(6)
   encerradoEm    DateTime?        @map("encerrado_em") @db.Timestamptz(6)
   criadoPorId    String?          @map("criado_por_id") @db.Uuid
@@ -140,15 +142,23 @@ model Pergunta {
   escalaRotuloMinimo String? @map("escala_rotulo_minimo") @db.VarChar(60)
   escalaRotuloMaximo String? @map("escala_rotulo_maximo") @db.VarChar(60)
 
-  criadoEm     DateTime     @default(now()) @map("criado_em") @db.Timestamptz(6)
-  atualizadoEm DateTime     @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+  /// Lógica condicional simples: a pergunta só aparece se esta alternativa tiver sido
+  /// escolhida. A pergunta de origem é a dona da alternativa, sempre de ordem anterior.
+  /// SetNull é apenas a rede de segurança do banco na exclusão em cascata do formulário —
+  /// o serviço recusa excluir alternativa da qual outra pergunta depende.
+  condicaoAlternativaId String? @map("condicao_alternativa_id") @db.Uuid
 
-  formulario    Formulario     @relation(fields: [formularioId], references: [id], onDelete: Cascade)
-  alternativas  Alternativa[]
-  respostaItens RespostaItem[]
+  criadoEm     DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm DateTime @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+
+  formulario          Formulario     @relation(fields: [formularioId], references: [id], onDelete: Cascade)
+  condicaoAlternativa Alternativa?   @relation("AlternativaCondicao", fields: [condicaoAlternativaId], references: [id], onDelete: SetNull)
+  alternativas        Alternativa[]
+  respostaItens       RespostaItem[]
 
   @@unique([formularioId, ordem])
   @@index([formularioId])
+  @@index([condicaoAlternativaId])
   @@map("pergunta")
 }
 
@@ -169,8 +179,9 @@ model Alternativa {
   ordem      Int
   criadoEm   DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
 
-  pergunta      Pergunta       @relation(fields: [perguntaId], references: [id], onDelete: Cascade)
-  respostaItens RespostaItem[]
+  pergunta               Pergunta       @relation(fields: [perguntaId], references: [id], onDelete: Cascade)
+  respostaItens          RespostaItem[]
+  perguntasCondicionadas Pergunta[]     @relation("AlternativaCondicao")
 
   @@unique([perguntaId, ordem])
   @@index([perguntaId])

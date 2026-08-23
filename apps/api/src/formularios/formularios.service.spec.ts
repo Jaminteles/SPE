@@ -2,9 +2,12 @@ import { BadRequestException, ConflictException, NotFoundException } from '@nest
 import { Test } from '@nestjs/testing';
 import { AuditoriaAcao, FormularioStatus, PerguntaTipo } from '@prisma/client';
 
+import { ConfigService } from '@nestjs/config';
+
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { FormulariosRepository } from './formularios.repository';
 import { FormulariosService } from './formularios.service';
+import { ProvedorQrCode } from './qrcode.provider';
 
 describe('FormulariosService', () => {
   let servico: FormulariosService;
@@ -30,8 +33,13 @@ describe('FormulariosService', () => {
     excluirAlternativa: jest.fn(),
     listarIdsDeAlternativas: jest.fn(),
     reordenarAlternativas: jest.fn(),
+    listarDependentesDePergunta: jest.fn(),
+    listarDependentesDeAlternativa: jest.fn(),
+    duplicar: jest.fn(),
   };
   const auditoria = { registrar: jest.fn() };
+  const qrCode = { gerarSvg: jest.fn() };
+  const config = { get: jest.fn((_chave: string, padrao: string) => padrao) };
 
   const rascunho = { id: 'form-1', status: FormularioStatus.RASCUNHO, titulo: 'Pesquisa' };
   const publicado = { id: 'form-1', status: FormularioStatus.EM_COLETA, titulo: 'Pesquisa' };
@@ -46,6 +54,8 @@ describe('FormulariosService', () => {
     escalaMaximo: null,
     escalaRotuloMinimo: null,
     escalaRotuloMaximo: null,
+    condicaoAlternativaId: null,
+    condicaoPerguntaId: null,
     alternativas: [
       { id: 'alt-1', texto: 'A', ordem: 1 },
       { id: 'alt-2', texto: 'B', ordem: 2 },
@@ -67,6 +77,7 @@ describe('FormulariosService', () => {
     publicadoEm: null,
     encerradoEm: null,
     criadoEm: new Date(),
+    tokenPublico: status === FormularioStatus.RASCUNHO ? null : 'token-publico-de-teste',
     totalPerguntas: perguntas.length,
     perguntas,
   });
@@ -74,11 +85,16 @@ describe('FormulariosService', () => {
   beforeEach(async () => {
     jest.resetAllMocks();
     repositorio.buscarResumo.mockImplementation(async () => formularioCompleto([]));
+    repositorio.listarDependentesDePergunta.mockResolvedValue([]);
+    repositorio.listarDependentesDeAlternativa.mockResolvedValue([]);
+    config.get.mockImplementation((_chave: string, padrao: string) => padrao);
     const modulo = await Test.createTestingModule({
       providers: [
         FormulariosService,
         { provide: FormulariosRepository, useValue: repositorio },
         { provide: AuditoriaService, useValue: auditoria },
+        { provide: ProvedorQrCode, useValue: qrCode },
+        { provide: ConfigService, useValue: config },
       ],
     }).compile();
     servico = modulo.get(FormulariosService);
@@ -151,6 +167,7 @@ describe('FormulariosService', () => {
         FormularioStatus.RASCUNHO,
         FormularioStatus.EM_COLETA,
         expect.any(Date),
+        expect.stringMatching(/^[A-Za-z0-9_-]{22}$/),
       );
       expect(auditoria.registrar).toHaveBeenCalledWith(
         expect.objectContaining({ acao: AuditoriaAcao.FORMULARIO_PUBLICADO, usuarioId: 'admin' }),

@@ -16,6 +16,7 @@ import {
   Length,
   Max,
   Min,
+  ValidateIf,
 } from 'class-validator';
 
 const paraTexto = ({ value }: { value: unknown }) =>
@@ -139,6 +140,15 @@ export class CriarPerguntaDto {
   @Transform(paraTexto)
   @Length(1, 60)
   escalaRotuloMaximo?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Lógica condicional: a pergunta só aparece se esta alternativa tiver sido escolhida. ' +
+      'A alternativa precisa ser de uma pergunta de escolha única, anterior a esta.',
+  })
+  @IsOptional()
+  @IsUUID('4')
+  condicaoAlternativaId?: string;
 }
 
 /** O tipo não muda depois de criado: mudar tipo é criar outra pergunta. */
@@ -184,6 +194,15 @@ export class AtualizarPerguntaDto {
   @Transform(paraTexto)
   @Length(1, 60)
   escalaRotuloMaximo?: string;
+
+  @ApiPropertyOptional({
+    description: 'Alternativa que habilita esta pergunta. Enviar null remove a condição.',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_objeto, valor) => valor !== null)
+  @IsUUID('4')
+  condicaoAlternativaId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -199,6 +218,22 @@ export class CriarAlternativaDto {
 }
 
 export class AtualizarAlternativaDto extends CriarAlternativaDto {}
+
+// ---------------------------------------------------------------------------
+// Duplicação
+// ---------------------------------------------------------------------------
+
+export class DuplicarFormularioDto {
+  @ApiPropertyOptional({
+    description: 'Título da cópia. Sem isso, vira "<título original> (cópia)".',
+    maxLength: 180,
+  })
+  @IsOptional()
+  @IsString()
+  @Transform(paraTexto)
+  @Length(3, 180)
+  titulo?: string;
+}
 
 // ---------------------------------------------------------------------------
 // Ordenação
@@ -236,6 +271,10 @@ export class PerguntaResponse {
   @ApiProperty({ nullable: true }) escalaMaximo!: number | null;
   @ApiProperty({ nullable: true }) escalaRotuloMinimo!: string | null;
   @ApiProperty({ nullable: true }) escalaRotuloMaximo!: string | null;
+  @ApiProperty({ nullable: true, description: 'Alternativa que habilita esta pergunta.' })
+  condicaoAlternativaId!: string | null;
+  @ApiProperty({ nullable: true, description: 'Pergunta dona da alternativa da condição.' })
+  condicaoPerguntaId!: string | null;
   @ApiProperty({ type: [AlternativaResponse] }) alternativas!: AlternativaResponse[];
 }
 
@@ -251,6 +290,19 @@ export class FormularioResumoResponse {
   @ApiProperty({ nullable: true }) encerradoEm!: Date | null;
   @ApiProperty() criadoEm!: Date;
   @ApiProperty({ description: 'Quantidade de perguntas.' }) totalPerguntas!: number;
+  @ApiProperty({ nullable: true, description: 'Identificador do link público de coleta.' })
+  tokenPublico!: string | null;
+}
+
+export class AcessoResponse {
+  @ApiProperty({ description: 'Link público de coleta.' })
+  url!: string;
+
+  @ApiProperty({ description: 'QR Code do link, em SVG.' })
+  qrCodeSvg!: string;
+
+  @ApiProperty({ description: 'Token público que identifica a pesquisa no link.' })
+  token!: string;
 }
 
 export class FormularioResponse extends FormularioResumoResponse {

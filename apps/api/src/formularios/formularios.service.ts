@@ -4,7 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AuditoriaAcao, FormularioStatus, PerguntaTipo } from '@prisma/client';
+import { randomBytes } from 'node:crypto';
 
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import {
@@ -23,6 +25,7 @@ import {
   FormulariosRepository,
   PerguntaRegistro,
 } from './formularios.repository';
+import { ProvedorQrCode } from './qrcode.provider';
 
 const LIMITE_PADRAO = 50;
 const MINIMO_DE_ALTERNATIVAS = 2;
@@ -38,6 +41,8 @@ export class FormulariosService {
   constructor(
     private readonly repositorio: FormulariosRepository,
     private readonly auditoria: AuditoriaService,
+    private readonly qrCode: ProvedorQrCode,
+    private readonly config: ConfigService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -135,6 +140,7 @@ export class FormulariosService {
       FormularioStatus.RASCUNHO,
       FormularioStatus.EM_COLETA,
       new Date(),
+      FormulariosService.gerarTokenPublico(),
     );
     if (trocados === 0) {
       throw new ConflictException('O formulário mudou de status. Recarregue e tente de novo.');
@@ -187,6 +193,65 @@ export class FormulariosService {
     return resumo;
   }
 
+  /**
+   * Link público e QR Code do formulário em coleta.
+   * O link usa o token aleatório, nunca o uuid interno: nada de enumerar pesquisa
+   * trocando um número na URL.
+   */
+  async acesso(id: string): Promise<{ url: string; qrCodeSvg: string; token: string }> {
+    const formulario = await this.exigirResumo(id);
+
+    if (formulario.status === FormularioStatus.RASCUNHO || !formulario.tokenPublico) {
+      throw new ConflictException('O link de acesso só existe depois da publicação.');
+    }
+
+    const url = this.montarUrlDeColeta(formulario.tokenPublico);
+    return {
+      url,
+      qrCodeSvg: await this.qrCode.gerarSvg(url),
+      token: formulario.tokenPublico,
+    };
+  }
+
+  /**
+   * Duplica o formulário como base para uma nova rodada. A cópia nasce em
+   * rascunho, sem link público e sem nenhuma resposta — é o caminho previsto
+   * para "editar" o que já está em coleta.
+   */
+  async duplicar(
+    id: string,
+    titulo: string | undefined,
+    autorId: string,
+  ): Promise<FormularioResumo> {
+    const origem = await this.exigirResumo(id);
+
+    const copia = await this.repositorio.duplicar(id, {
+      titulo: titulo?.trim() || `${origem.titulo} (cópia)`,
+      versao: origem.versao + 1,
+      criadoPorId: autorId,
+    });
+
+    await this.auditoria.registrar({
+      acao: AuditoriaAcao.FORMULARIO_CRIADO,
+      entidade: 'formulario',
+      entidadeId: copia.id,
+      usuarioId: autorId,
+      detalhe: { duplicadoDe: id, versao: copia.versao },
+    });
+
+    return copia;
+  }
+
+  private montarUrlDeColeta(token: string): string {
+    const base = this.config.get<string>('COLETA_BASE_URL', 'http://localhost:5173');
+    return `${base}/r/${token}`;
+  }
+
+  /** 22 caracteres aleatórios: curto para caber num QR pequeno, largo para não ser adivinhado. */
+  private static gerarTokenPublico(): string {
+    return randomBytes(16).toString('base64url');
+  }
+
   /** Lista o que impede a publicação. Vazia significa pronto para publicar. */
   private problemasParaPublicar(formulario: FormularioCompleto): string[] {
     const problemas: string[] = [];
@@ -210,6 +275,16 @@ export class FormulariosService {
       ) {
         problemas.push(`A pergunta ${pergunta.ordem} precisa da faixa da escala.`);
       }
+      if (pergunta.condicaoPerguntaId) {
+        const origem = formulario.perguntas.find(
+          (candidata) => candidata.id === pergunta.condicaoPerguntaId,
+        );
+        if (!origem || origem.ordem >= pergunta.ordem) {
+          problemas.push(
+            `A pergunta ${pergunta.ordem} depende de uma pergunta que não vem antes dela.`,
+          );
+        }
+      }
     }
 
     return problemas;
@@ -227,6 +302,15 @@ export class FormulariosService {
     await this.exigirRascunho(formularioId);
     this.conferirConfiguracaoDeEscala(dto.tipo, dto);
 
+    // A pergunta nova entra no fim, então qualquer pergunta existente é anterior a ela.
+    if (dto.condicaoAlternativaId) {
+      await this.exigirCondicaoValida(
+        formularioId,
+        dto.condicaoAlternativaId,
+        Number.MAX_SAFE_INTEGER,
+      );
+    }
+
     const criada = await this.repositorio.criarPergunta(formularioId, {
       enunciado: dto.enunciado,
       tipo: dto.tipo,
@@ -235,6 +319,7 @@ export class FormulariosService {
       escalaMaximo: dto.tipo === PerguntaTipo.ESCALA ? dto.escalaMaximo : null,
       escalaRotuloMinimo: dto.tipo === PerguntaTipo.ESCALA ? dto.escalaRotuloMinimo : null,
       escalaRotuloMaximo: dto.tipo === PerguntaTipo.ESCALA ? dto.escalaRotuloMaximo : null,
+      condicaoAlternativaId: dto.condicaoAlternativaId ?? null,
     });
 
     await this.registrarAlteracaoDeConteudo(formularioId, autorId, {
@@ -273,6 +358,10 @@ export class FormulariosService {
       });
     }
 
+    if (dto.condicaoAlternativaId !== undefined && dto.condicaoAlternativaId !== null) {
+      await this.exigirCondicaoValida(formularioId, dto.condicaoAlternativaId, pergunta.ordem);
+    }
+
     const atualizada = await this.repositorio.atualizarPergunta(perguntaId, dto);
 
     await this.registrarAlteracaoDeConteudo(formularioId, autorId, {
@@ -287,6 +376,14 @@ export class FormulariosService {
   async excluirPergunta(formularioId: string, perguntaId: string, autorId: string): Promise<void> {
     await this.exigirRascunho(formularioId);
     const pergunta = await this.exigirPergunta(formularioId, perguntaId);
+
+    const dependentes = await this.repositorio.listarDependentesDePergunta(perguntaId);
+    if (dependentes.length > 0) {
+      throw new ConflictException(
+        `Outra pergunta depende desta para aparecer (pergunta ${dependentes[0].ordem}). ` +
+          'Remova a condição antes de excluir.',
+      );
+    }
 
     await this.repositorio.excluirPergunta(formularioId, perguntaId, pergunta.ordem);
 
@@ -306,6 +403,9 @@ export class FormulariosService {
     const existentes = await this.repositorio.listarIdsDePerguntas(formularioId);
     this.conferirListaDeReordenacao(existentes, ids, 'pergunta');
 
+    const formulario = await this.buscar(formularioId);
+    this.conferirCondicoesNaNovaOrdem(formulario.perguntas, ids);
+
     await this.repositorio.reordenarPerguntas(formularioId, ids);
 
     await this.registrarAlteracaoDeConteudo(formularioId, autorId, {
@@ -313,8 +413,8 @@ export class FormulariosService {
       total: ids.length,
     });
 
-    const formulario = await this.buscar(formularioId);
-    return formulario.perguntas;
+    const reordenado = await this.buscar(formularioId);
+    return reordenado.perguntas;
   }
 
   // -------------------------------------------------------------------------
@@ -373,6 +473,14 @@ export class FormulariosService {
     await this.exigirRascunho(formularioId);
     await this.exigirPergunta(formularioId, perguntaId);
     const alternativa = await this.exigirAlternativa(perguntaId, alternativaId);
+
+    const dependentes = await this.repositorio.listarDependentesDeAlternativa(alternativaId);
+    if (dependentes.length > 0) {
+      throw new ConflictException(
+        `A pergunta ${dependentes[0].ordem} só aparece quando esta alternativa é escolhida. ` +
+          'Remova a condição antes de excluir.',
+      );
+    }
 
     await this.repositorio.excluirAlternativa(perguntaId, alternativaId, alternativa.ordem);
 
@@ -454,6 +562,56 @@ export class FormulariosService {
       throw new BadRequestException(
         'Só perguntas de escolha única ou múltipla escolha têm alternativas.',
       );
+    }
+  }
+
+  /**
+   * Lógica condicional simples (mostrar/ocultar por resposta única):
+   * a alternativa de origem precisa ser do mesmo formulário, de uma pergunta de
+   * escolha única e de ordem anterior à pergunta condicionada.
+   */
+  private async exigirCondicaoValida(
+    formularioId: string,
+    condicaoAlternativaId: string,
+    ordemDaPergunta: number,
+  ): Promise<void> {
+    const formulario = await this.buscar(formularioId);
+
+    const origem = formulario.perguntas.find((pergunta) =>
+      pergunta.alternativas.some((alternativa) => alternativa.id === condicaoAlternativaId),
+    );
+
+    if (!origem) {
+      throw new BadRequestException('A alternativa da condição não é deste formulário.');
+    }
+    if (origem.tipo !== PerguntaTipo.UNICA_ESCOLHA) {
+      throw new BadRequestException(
+        'A condição só pode depender de uma pergunta de escolha única.',
+      );
+    }
+    if (origem.ordem >= ordemDaPergunta) {
+      throw new BadRequestException('A pergunta de origem da condição precisa vir antes.');
+    }
+  }
+
+  /** Reordenar não pode deixar uma pergunta antes daquela que a habilita. */
+  private conferirCondicoesNaNovaOrdem(perguntas: PerguntaRegistro[], ids: string[]): void {
+    const posicao = new Map(ids.map((id, indice) => [id, indice]));
+
+    for (const pergunta of perguntas) {
+      if (!pergunta.condicaoPerguntaId) {
+        continue;
+      }
+      const posicaoDela = posicao.get(pergunta.id);
+      const posicaoDaOrigem = posicao.get(pergunta.condicaoPerguntaId);
+      if (posicaoDela === undefined || posicaoDaOrigem === undefined) {
+        continue;
+      }
+      if (posicaoDaOrigem >= posicaoDela) {
+        throw new BadRequestException(
+          'A nova ordem deixaria uma pergunta antes da pergunta que a habilita.',
+        );
+      }
     }
   }
 

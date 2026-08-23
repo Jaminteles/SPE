@@ -14,6 +14,7 @@ export interface FormularioResumo {
   publicadoEm: Date | null;
   encerradoEm: Date | null;
   criadoEm: Date;
+  tokenPublico: string | null;
   totalPerguntas: number;
 }
 
@@ -33,6 +34,9 @@ export interface PerguntaRegistro {
   escalaMaximo: number | null;
   escalaRotuloMinimo: string | null;
   escalaRotuloMaximo: string | null;
+  condicaoAlternativaId: string | null;
+  /// Pergunta dona da alternativa de condição. Derivada, para o cliente não precisar cruzar.
+  condicaoPerguntaId: string | null;
   alternativas: AlternativaRegistro[];
 }
 
@@ -63,6 +67,7 @@ export class FormulariosRepository {
     publicadoEm: true,
     encerradoEm: true,
     criadoEm: true,
+    tokenPublico: true,
     _count: { select: { perguntas: true } },
   } satisfies Prisma.FormularioSelect;
 
@@ -76,6 +81,8 @@ export class FormulariosRepository {
     escalaMaximo: true,
     escalaRotuloMinimo: true,
     escalaRotuloMaximo: true,
+    condicaoAlternativaId: true,
+    condicaoAlternativa: { select: { perguntaId: true } },
     alternativas: {
       select: { id: true, texto: true, ordem: true },
       orderBy: { ordem: 'asc' },
@@ -83,6 +90,15 @@ export class FormulariosRepository {
   } satisfies Prisma.PerguntaSelect;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  private projetarPergunta(
+    bruto: Omit<PerguntaRegistro, 'condicaoPerguntaId'> & {
+      condicaoAlternativa: { perguntaId: string } | null;
+    },
+  ): PerguntaRegistro {
+    const { condicaoAlternativa, ...resto } = bruto;
+    return { ...resto, condicaoPerguntaId: condicaoAlternativa?.perguntaId ?? null };
+  }
 
   private projetarResumo(
     bruto: Omit<FormularioResumo, 'totalPerguntas'> & { _count: { perguntas: number } },
@@ -133,7 +149,10 @@ export class FormulariosRepository {
       return null;
     }
     const { perguntas, ...resumo } = bruto;
-    return { ...this.projetarResumo(resumo), perguntas };
+    return {
+      ...this.projetarResumo(resumo),
+      perguntas: perguntas.map((pergunta) => this.projetarPergunta(pergunta)),
+    };
   }
 
   /** Resumo sem as perguntas: usado depois de publicar ou encerrar. */
@@ -205,12 +224,15 @@ export class FormulariosRepository {
     de: FormularioStatus,
     para: FormularioStatus,
     momento: Date,
+    tokenPublico?: string,
   ): Promise<number> {
     const resultado = await this.prisma.formulario.updateMany({
       where: { id, status: de },
       data: {
         status: para,
-        ...(para === FormularioStatus.EM_COLETA ? { publicadoEm: momento } : {}),
+        ...(para === FormularioStatus.EM_COLETA
+          ? { publicadoEm: momento, ...(tokenPublico ? { tokenPublico } : {}) }
+          : {}),
         ...(para === FormularioStatus.ENCERRADO ? { encerradoEm: momento } : {}),
       },
     });
@@ -236,10 +258,11 @@ export class FormulariosRepository {
 
   async buscarPergunta(formularioId: string, perguntaId: string): Promise<PerguntaRegistro | null> {
     // O formulário entra no WHERE: pergunta de outro formulário não é encontrada.
-    return this.prisma.pergunta.findFirst({
+    const bruto = await this.prisma.pergunta.findFirst({
       where: { id: perguntaId, formularioId },
       select: FormulariosRepository.SELECAO_PERGUNTA,
     });
+    return bruto ? this.projetarPergunta(bruto) : null;
   }
 
   async criarPergunta(
@@ -252,9 +275,10 @@ export class FormulariosRepository {
       escalaMaximo?: number | null;
       escalaRotuloMinimo?: string | null;
       escalaRotuloMaximo?: string | null;
+      condicaoAlternativaId?: string | null;
     },
   ): Promise<PerguntaRegistro> {
-    return this.prisma.$transaction(async (tx) => {
+    const bruto = await this.prisma.$transaction(async (tx) => {
       const agregado = await tx.pergunta.aggregate({
         where: { formularioId },
         _max: { ordem: true },
@@ -271,10 +295,12 @@ export class FormulariosRepository {
           escalaMaximo: dados.escalaMaximo ?? null,
           escalaRotuloMinimo: dados.escalaRotuloMinimo ?? null,
           escalaRotuloMaximo: dados.escalaRotuloMaximo ?? null,
+          condicaoAlternativaId: dados.condicaoAlternativaId ?? null,
         },
         select: FormulariosRepository.SELECAO_PERGUNTA,
       });
     });
+    return this.projetarPergunta(bruto);
   }
 
   async atualizarPergunta(
@@ -286,9 +312,10 @@ export class FormulariosRepository {
       escalaMaximo?: number;
       escalaRotuloMinimo?: string;
       escalaRotuloMaximo?: string;
+      condicaoAlternativaId?: string | null;
     },
   ): Promise<PerguntaRegistro> {
-    return this.prisma.pergunta.update({
+    const bruto = await this.prisma.pergunta.update({
       where: { id: perguntaId },
       data: {
         ...(dados.enunciado === undefined ? {} : { enunciado: dados.enunciado }),
@@ -301,9 +328,13 @@ export class FormulariosRepository {
         ...(dados.escalaRotuloMaximo === undefined
           ? {}
           : { escalaRotuloMaximo: dados.escalaRotuloMaximo }),
+        ...(dados.condicaoAlternativaId === undefined
+          ? {}
+          : { condicaoAlternativaId: dados.condicaoAlternativaId }),
       },
       select: FormulariosRepository.SELECAO_PERGUNTA,
     });
+    return this.projetarPergunta(bruto);
   }
 
   /** Remove a pergunta e fecha o buraco na numeração, em uma transação. */
@@ -346,6 +377,108 @@ export class FormulariosRepository {
         data: { atualizadoEm: new Date() },
       });
     });
+  }
+
+  /** Perguntas que dependem de alguma alternativa da pergunta informada. */
+  async listarDependentesDePergunta(
+    perguntaId: string,
+  ): Promise<{ id: string; ordem: number; enunciado: string }[]> {
+    return this.prisma.pergunta.findMany({
+      where: { condicaoAlternativa: { perguntaId } },
+      select: { id: true, ordem: true, enunciado: true },
+      orderBy: { ordem: 'asc' },
+    });
+  }
+
+  /** Perguntas que dependem exatamente desta alternativa. */
+  async listarDependentesDeAlternativa(
+    alternativaId: string,
+  ): Promise<{ id: string; ordem: number; enunciado: string }[]> {
+    return this.prisma.pergunta.findMany({
+      where: { condicaoAlternativaId: alternativaId },
+      select: { id: true, ordem: true, enunciado: true },
+      orderBy: { ordem: 'asc' },
+    });
+  }
+
+  /**
+   * Cópia profunda do formulário: perguntas, alternativas e a lógica condicional
+   * remapeada para os ids novos. A cópia nasce em rascunho, sem token público e
+   * sem nenhuma resposta — é base para uma nova rodada, não continuação da antiga.
+   */
+  async duplicar(
+    origemId: string,
+    dados: { titulo: string; versao: number; criadoPorId: string },
+  ): Promise<FormularioResumo> {
+    const origem = await this.buscarCompleto(origemId);
+    if (!origem) {
+      throw new Error('Formulário de origem não encontrado.');
+    }
+
+    const bruto = await this.prisma.$transaction(async (tx) => {
+      const copia = await tx.formulario.create({
+        data: {
+          titulo: dados.titulo,
+          descricao: origem.descricao,
+          versao: dados.versao,
+          vigenciaInicio: origem.vigenciaInicio,
+          vigenciaFim: origem.vigenciaFim,
+          criadoPor: { connect: { id: dados.criadoPorId } },
+        },
+        select: { id: true },
+      });
+
+      const alternativaNova = new Map<string, string>();
+      const perguntaNova = new Map<string, string>();
+
+      for (const pergunta of origem.perguntas) {
+        const criada = await tx.pergunta.create({
+          data: {
+            formularioId: copia.id,
+            enunciado: pergunta.enunciado,
+            tipo: pergunta.tipo,
+            obrigatoria: pergunta.obrigatoria,
+            ordem: pergunta.ordem,
+            escalaMinimo: pergunta.escalaMinimo,
+            escalaMaximo: pergunta.escalaMaximo,
+            escalaRotuloMinimo: pergunta.escalaRotuloMinimo,
+            escalaRotuloMaximo: pergunta.escalaRotuloMaximo,
+          },
+          select: { id: true },
+        });
+        perguntaNova.set(pergunta.id, criada.id);
+
+        for (const alternativa of pergunta.alternativas) {
+          const nova = await tx.alternativa.create({
+            data: { perguntaId: criada.id, texto: alternativa.texto, ordem: alternativa.ordem },
+            select: { id: true },
+          });
+          alternativaNova.set(alternativa.id, nova.id);
+        }
+      }
+
+      // A condição só é ligada depois: a alternativa de origem já existe na cópia.
+      for (const pergunta of origem.perguntas) {
+        if (!pergunta.condicaoAlternativaId) {
+          continue;
+        }
+        const destino = alternativaNova.get(pergunta.condicaoAlternativaId);
+        if (!destino) {
+          continue;
+        }
+        await tx.pergunta.update({
+          where: { id: perguntaNova.get(pergunta.id) },
+          data: { condicaoAlternativaId: destino },
+        });
+      }
+
+      return tx.formulario.findUniqueOrThrow({
+        where: { id: copia.id },
+        select: FormulariosRepository.SELECAO_RESUMO,
+      });
+    });
+
+    return this.projetarResumo(bruto);
   }
 
   // -------------------------------------------------------------------------

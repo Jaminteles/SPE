@@ -201,6 +201,29 @@ export function TelaPergunta({
           </>
         ) : null}
 
+        {pergunta.condicaoAlternativaId ? (
+          <View style={estilos.condicao}>
+            <Text style={estilos.condicaoTexto}>
+              Esta pergunta só aparece para quem escolher a alternativa marcada em outra pergunta.
+            </Text>
+            {editavel ? (
+              <TouchableOpacity
+                onPress={() =>
+                  void executar(() =>
+                    servicoFormularios.atualizarPergunta(formularioId, perguntaId, {
+                      enunciado: enunciado.trim(),
+                      condicaoAlternativaId: null,
+                    }),
+                  )
+                }
+                accessibilityRole="button"
+              >
+                <Text style={estilos.removerCondicao}>Remover condição</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
+
         {editavel ? (
           <Botao
             titulo="Salvar pergunta"
@@ -311,4 +334,13 @@ const estilos = StyleSheet.create({
   acaoInativa: { opacity: 0.35 },
   acaoPerigo: { color: cores.erro },
   semAlternativa: { fontSize: 13, color: cores.suave, marginTop: 8 },
+  condicao: {
+    borderTopWidth: 1,
+    borderTopColor: cores.borda,
+    paddingTop: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  condicaoTexto: { fontSize: 12, color: cores.suave, lineHeight: 17 },
+  removerCondicao: { fontSize: 12, color: cores.erro },
 });
