@@ -3,6 +3,7 @@ import { validarAmbiente } from './env.config';
 const BASE = {
   DATABASE_URL: 'postgresql://spe:spe@localhost:5432/spe_test?schema=public',
   JWT_SECRET: 'segredo-de-teste-com-32-caracteres-ou-mais',
+  DEVICE_HASH_PEPPER: 'pepper-de-teste-com-32-caracteres-ou-mais',
 };
 
 describe('validarAmbiente', () => {
@@ -11,7 +12,10 @@ describe('validarAmbiente', () => {
   });
 
   it('não sobe a aplicação sem JWT_SECRET', () => {
-    const semSegredo = { DATABASE_URL: BASE.DATABASE_URL };
+    const semSegredo = {
+      DATABASE_URL: BASE.DATABASE_URL,
+      DEVICE_HASH_PEPPER: BASE.DEVICE_HASH_PEPPER,
+    };
     expect(() => validarAmbiente(semSegredo)).toThrow('JWT_SECRET não configurado.');
   });
 
@@ -22,6 +26,15 @@ describe('validarAmbiente', () => {
   it('exige HTTPS por padrão em produção e não em desenvolvimento', () => {
     expect(validarAmbiente({ ...BASE, NODE_ENV: 'production' }).TLS_OBRIGATORIO).toBe(true);
     expect(validarAmbiente(BASE).TLS_OBRIGATORIO).toBe(false);
+  });
+
+  it('não sobe a aplicação sem DEVICE_HASH_PEPPER', () => {
+    const semPepper = { DATABASE_URL: BASE.DATABASE_URL, JWT_SECRET: BASE.JWT_SECRET };
+    expect(() => validarAmbiente(semPepper)).toThrow('DEVICE_HASH_PEPPER não configurado.');
+  });
+
+  it('recusa DEVICE_HASH_PEPPER curto', () => {
+    expect(() => validarAmbiente({ ...BASE, DEVICE_HASH_PEPPER: 'curto' })).toThrow('curto demais');
   });
 
   it('recusa NODE_ENV desconhecido', () => {

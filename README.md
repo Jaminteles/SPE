@@ -75,6 +75,11 @@ nasce protegida — rota pública exige `@Publico()` explícito. Modelo completo
 Montagem do formulário, cinco tipos de pergunta, ordenação e a trava de imutabilidade
 depois da publicação: [docs/formularios.md](./docs/formularios.md).
 
+## Coleta
+
+Fluxo do respondente (consentimento, município por código IBGE, preenchimento parcial em
+SQLite, reenvio automático): [docs/coleta.md](./docs/coleta.md).
+
 ## Privacidade
 
 A resposta é anônima por construção: nome, CPF, telefone e e-mail do respondente não são

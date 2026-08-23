@@ -16,11 +16,12 @@ import { cores } from '../ui/cores';
 
 interface Props {
   aoEntrar: (usuario: UsuarioLogado) => void;
+  aoResponderPesquisa: () => void;
 }
 
 const TAMANHO_MINIMO_SENHA = 12;
 
-export function TelaLogin({ aoEntrar }: Props) {
+export function TelaLogin({ aoEntrar, aoResponderPesquisa }: Props) {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState<string | null>(null);
@@ -104,6 +105,14 @@ export function TelaLogin({ aoEntrar }: Props) {
         <Text style={estilos.aviso}>
           O respondente não precisa de conta. Esta tela é apenas para Administrador e Analista.
         </Text>
+
+        <TouchableOpacity
+          style={estilos.coleta}
+          onPress={aoResponderPesquisa}
+          accessibilityRole="button"
+        >
+          <Text style={estilos.coletaTexto}>Responder uma pesquisa</Text>
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
@@ -147,4 +156,12 @@ const estilos = StyleSheet.create({
   botaoDesabilitado: { opacity: 0.5 },
   botaoTexto: { color: cores.fundoBotaoTexto, fontWeight: '600', fontSize: 15 },
   aviso: { fontSize: 12, color: cores.suave, marginTop: 18, lineHeight: 17 },
+  coleta: {
+    marginTop: 18,
+    borderTopWidth: 1,
+    borderTopColor: cores.borda,
+    paddingTop: 16,
+    alignItems: 'center',
+  },
+  coletaTexto: { fontSize: 14, color: cores.texto, fontWeight: '600' },
 });

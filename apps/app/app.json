@@ -9,11 +9,16 @@
     "runtimeVersion": {
       "policy": "appVersion"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "android": {
       "package": "br.com.pesquisaeleitoral.coleta",
       "versionCode": 1,
-      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "extra": {
       "eas": {}
@@ -28,6 +33,13 @@
             "compileSdkVersion": 35,
             "targetSdkVersion": 34
           }
+        }
+      ],
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "A localização é opcional e serve apenas para conferência da pesquisa. Você pode recusar e responder normalmente."
         }
       ]
     ]

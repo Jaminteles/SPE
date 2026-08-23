@@ -7,6 +7,7 @@ import { TelaFormulario } from './src/telas/admin/TelaFormulario';
 import { TelaFormularios } from './src/telas/admin/TelaFormularios';
 import { TelaPergunta } from './src/telas/admin/TelaPergunta';
 import { TelaPreVisualizacao } from './src/telas/admin/TelaPreVisualizacao';
+import { FluxoDeColeta } from './src/telas/coleta/FluxoDeColeta';
 import { TelaInicio } from './src/telas/TelaInicio';
 import { TelaLogin } from './src/telas/TelaLogin';
 import { cores } from './src/ui/cores';
@@ -26,6 +27,8 @@ export default function App() {
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [rota, setRota] = useState<Rota>({ tela: 'inicio' });
+  /** A coleta não exige conta: vive fora da área autenticada. */
+  const [respondendo, setRespondendo] = useState(false);
 
   useEffect(() => {
     let ativo = true;
@@ -77,10 +80,19 @@ export default function App() {
     );
   }
 
+  if (respondendo) {
+    return (
+      <View style={estilos.raiz}>
+        <FluxoDeColeta aoSair={() => setRespondendo(false)} />
+        <StatusBar style="auto" />
+      </View>
+    );
+  }
+
   if (!usuario) {
     return (
       <View style={estilos.raiz}>
-        <TelaLogin aoEntrar={entrar} />
+        <TelaLogin aoEntrar={entrar} aoResponderPesquisa={() => setRespondendo(true)} />
         <StatusBar style="auto" />
       </View>
     );

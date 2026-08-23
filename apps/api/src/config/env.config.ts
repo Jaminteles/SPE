@@ -16,12 +16,13 @@ export interface AppEnv {
   SESSAO_ABSOLUTA_HORAS: number;
   TLS_OBRIGATORIO: boolean;
   COLETA_BASE_URL: string;
+  DEVICE_HASH_PEPPER: string;
 }
 
 const AMBIENTES = ['development', 'test', 'production'] as const;
 
-/** Comprimento mínimo do segredo de assinatura do token. */
-const JWT_SECRET_MINIMO = 32;
+/** Comprimento mínimo de qualquer segredo de ambiente. */
+const SEGREDO_MINIMO = 32;
 
 function inteiro(valor: string | undefined, padrao: number, nome: string): number {
   if (valor === undefined || valor === '') {
@@ -52,12 +53,20 @@ export function validarAmbiente(bruto: Record<string, unknown>): AppEnv {
     throw new Error('DATABASE_URL não configurada.');
   }
 
+  const pepper = bruto.DEVICE_HASH_PEPPER as string | undefined;
+  if (!pepper) {
+    throw new Error('DEVICE_HASH_PEPPER não configurado.');
+  }
+  if (pepper.length < SEGREDO_MINIMO) {
+    throw new Error(`DEVICE_HASH_PEPPER curto demais: mínimo de ${SEGREDO_MINIMO} caracteres.`);
+  }
+
   const jwtSecret = bruto.JWT_SECRET as string | undefined;
   if (!jwtSecret) {
     throw new Error('JWT_SECRET não configurado.');
   }
-  if (jwtSecret.length < JWT_SECRET_MINIMO) {
-    throw new Error(`JWT_SECRET curto demais: mínimo de ${JWT_SECRET_MINIMO} caracteres.`);
+  if (jwtSecret.length < SEGREDO_MINIMO) {
+    throw new Error(`JWT_SECRET curto demais: mínimo de ${SEGREDO_MINIMO} caracteres.`);
   }
 
   const corsOrigins = String(bruto.CORS_ORIGINS ?? '')
@@ -97,5 +106,6 @@ export function validarAmbiente(bruto: Record<string, unknown>): AppEnv {
     TLS_OBRIGATORIO: booleano(bruto.TLS_OBRIGATORIO, nodeEnv === 'production'),
     // Base do link público de coleta, sem barra no fim.
     COLETA_BASE_URL: String(bruto.COLETA_BASE_URL ?? 'http://localhost:5173').replace(/\/+$/, ''),
+    DEVICE_HASH_PEPPER: pepper,
   };
 }

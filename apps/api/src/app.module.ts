@@ -7,6 +7,7 @@ import { AuditoriaModule } from './auditoria/auditoria.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PerfisGuard } from './auth/guards/perfis.guard';
+import { ColetaModule } from './coleta/coleta.module';
 import { validarAmbiente } from './config/env.config';
 import { FormulariosModule } from './formularios/formularios.module';
 import { HealthModule } from './health/health.module';
@@ -36,6 +37,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     UsuariosModule,
     AuthModule,
     FormulariosModule,
+    ColetaModule,
     HealthModule,
     MunicipiosModule,
   ],
