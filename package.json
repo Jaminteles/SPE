@@ -1,0 +1,22 @@
+{
+  "name": "spe",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Sistema de Pesquisa Eleitoral — monorepo (API, painel e aplicativo)",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "scripts": {
+    "install:all": "npm --prefix apps/api install && npm --prefix apps/painel install && npm --prefix apps/app install",
+    "test": "npm --prefix apps/api run test",
+    "lint": "npm --prefix apps/api run lint && npm --prefix apps/painel run lint && npm --prefix apps/app run lint",
+    "typecheck": "npm --prefix apps/api run typecheck && npm --prefix apps/painel run typecheck && npm --prefix apps/app run typecheck",
+    "build": "npm --prefix apps/api run build && npm --prefix apps/painel run build",
+    "prisma:validate": "npm --prefix apps/api run prisma:validate",
+    "prisma:status": "npm --prefix apps/api run prisma:status",
+    "dev:up": "docker compose -f infra/docker-compose.dev.yml up -d",
+    "dev:down": "docker compose -f infra/docker-compose.dev.yml down",
+    "hml:up": "docker compose -f infra/docker-compose.hml.yml up -d --build",
+    "hml:down": "docker compose -f infra/docker-compose.hml.yml down"
+  }
+}

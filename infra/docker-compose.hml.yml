@@ -1,0 +1,72 @@
+name: spe-hml
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: spe-hml-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?defina POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?defina POSTGRES_DB}
+      TZ: America/Bahia
+    volumes:
+      - dados-postgres-hml:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: spe-hml-redis
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - dados-redis-hml:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ../apps/api
+      target: production
+    container_name: spe-hml-api
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_PREFIX: api
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGINS: ${CORS_ORIGINS:?defina CORS_ORIGINS}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET}
+      DEVICE_HASH_PEPPER: ${DEVICE_HASH_PEPPER:?defina DEVICE_HASH_PEPPER}
+    ports:
+      - '3000:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  painel:
+    build:
+      context: ../apps/painel
+      target: production
+      args:
+        VITE_API_URL: ${VITE_API_URL:?defina VITE_API_URL}
+    container_name: spe-hml-painel
+    ports:
+      - '8080:80'
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  dados-postgres-hml:
+  dados-redis-hml:

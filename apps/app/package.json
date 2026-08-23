@@ -1,0 +1,28 @@
+{
+  "name": "@spe/app",
+  "private": true,
+  "version": "0.1.0",
+  "main": "index.ts",
+  "description": "Aplicativo de coleta e administracao do Sistema de Pesquisa Eleitoral",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "web": "expo start --web",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit",
+    "build:apk": "eas build --platform android --profile preview"
+  },
+  "dependencies": {
+    "expo": "~52.0.23",
+    "expo-status-bar": "~2.0.1",
+    "react": "18.3.1",
+    "react-native": "0.76.5"
+  },
+  "devDependencies": {
+    "@types/react": "~18.3.12",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^8.57.1",
+    "typescript": "~5.3.3"
+  }
+}

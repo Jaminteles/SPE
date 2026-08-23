@@ -1,0 +1,273 @@
+// Fonte de verdade do schema do Sistema de Pesquisa Eleitoral.
+// Toda alteracao estrutural nasce aqui e vira migration pelo Prisma.
+// Objetos que o Prisma nao modela (indice parcial, CHECK, view materializada)
+// sao escritos a mao dentro do migration.sql da migration correspondente.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Acesso
+// ---------------------------------------------------------------------------
+
+/// Perfis de acesso ao painel e à administração. O respondente não tem conta.
+model Perfil {
+  id        String       @id @default(uuid()) @db.Uuid
+  codigo    PerfilCodigo @unique
+  nome      String       @db.VarChar(60)
+  descricao String?      @db.VarChar(240)
+  criadoEm  DateTime     @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  usuarios Usuario[]
+
+  @@map("perfil")
+}
+
+enum PerfilCodigo {
+  ADMINISTRADOR
+  ANALISTA
+
+  @@map("perfil_codigo")
+}
+
+model Usuario {
+  id            String    @id @default(uuid()) @db.Uuid
+  nome          String    @db.VarChar(120)
+  email         String    @unique @db.VarChar(180)
+  senhaHash     String    @map("senha_hash") @db.VarChar(255)
+  ativo         Boolean   @default(true)
+  perfilId      String    @map("perfil_id") @db.Uuid
+  ultimoLoginEm DateTime? @map("ultimo_login_em") @db.Timestamptz(6)
+  criadoEm      DateTime  @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm  DateTime  @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+
+  perfil               Perfil         @relation(fields: [perfilId], references: [id], onDelete: Restrict)
+  formulariosCriados   Formulario[]   @relation("FormularioCriadoPor")
+  respostasInvalidadas Resposta[]     @relation("RespostaInvalidadaPor")
+  logs                 LogAuditoria[]
+
+  @@index([perfilId])
+  @@map("usuario")
+}
+
+// ---------------------------------------------------------------------------
+// Formulário
+// ---------------------------------------------------------------------------
+
+/// Depois que o formulário entra em coleta, perguntas e alternativas são imutáveis.
+/// Alteração de conteúdo nasce como novo formulário/versão.
+model Formulario {
+  id             String           @id @default(uuid()) @db.Uuid
+  titulo         String           @db.VarChar(180)
+  descricao      String?          @db.VarChar(2000)
+  status         FormularioStatus @default(RASCUNHO)
+  versao         Int              @default(1)
+  vigenciaInicio DateTime?        @map("vigencia_inicio") @db.Timestamptz(6)
+  vigenciaFim    DateTime?        @map("vigencia_fim") @db.Timestamptz(6)
+  publicadoEm    DateTime?        @map("publicado_em") @db.Timestamptz(6)
+  encerradoEm    DateTime?        @map("encerrado_em") @db.Timestamptz(6)
+  criadoPorId    String?          @map("criado_por_id") @db.Uuid
+  criadoEm       DateTime         @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm   DateTime         @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+
+  criadoPor Usuario?   @relation("FormularioCriadoPor", fields: [criadoPorId], references: [id], onDelete: SetNull)
+  perguntas Pergunta[]
+  respostas Resposta[]
+
+  @@index([status])
+  @@index([criadoPorId])
+  @@map("formulario")
+}
+
+enum FormularioStatus {
+  RASCUNHO
+  EM_COLETA
+  ENCERRADO
+
+  @@map("formulario_status")
+}
+
+model Pergunta {
+  id           String       @id @default(uuid()) @db.Uuid
+  formularioId String       @map("formulario_id") @db.Uuid
+  enunciado    String       @db.VarChar(500)
+  tipo         PerguntaTipo
+  obrigatoria  Boolean      @default(true)
+  ordem        Int
+  criadoEm     DateTime     @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm DateTime     @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+
+  formulario    Formulario     @relation(fields: [formularioId], references: [id], onDelete: Cascade)
+  alternativas  Alternativa[]
+  respostaItens RespostaItem[]
+
+  @@unique([formularioId, ordem])
+  @@index([formularioId])
+  @@map("pergunta")
+}
+
+enum PerguntaTipo {
+  UNICA_ESCOLHA
+  MULTIPLA_ESCOLHA
+  TEXTO_LIVRE
+  NUMERO
+
+  @@map("pergunta_tipo")
+}
+
+model Alternativa {
+  id         String   @id @default(uuid()) @db.Uuid
+  perguntaId String   @map("pergunta_id") @db.Uuid
+  texto      String   @db.VarChar(300)
+  ordem      Int
+  criadoEm   DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  pergunta      Pergunta       @relation(fields: [perguntaId], references: [id], onDelete: Cascade)
+  respostaItens RespostaItem[]
+
+  @@unique([perguntaId, ordem])
+  @@index([perguntaId])
+  @@map("alternativa")
+}
+
+// ---------------------------------------------------------------------------
+// Município (base oficial do IBGE, restrita à Bahia)
+// ---------------------------------------------------------------------------
+
+model Municipio {
+  id String @id @default(uuid()) @db.Uuid
+
+  /// Código do município no IBGE. Chave de negócio da apuração.
+  codigoIbge   Int      @unique @map("codigo_ibge")
+  nome         String   @db.VarChar(120)
+  uf           String   @db.Char(2)
+  criadoEm     DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+  atualizadoEm DateTime @updatedAt @map("atualizado_em") @db.Timestamptz(6)
+
+  respostas Resposta[]
+
+  @@index([uf, nome])
+  @@map("municipio")
+}
+
+// ---------------------------------------------------------------------------
+// Resposta
+// ---------------------------------------------------------------------------
+
+/// A resposta é anônima por construção: nenhum campo identifica o respondente.
+/// O controle de duplicidade usa apenas o hash irreversível do dispositivo.
+/// Resposta nunca é excluída: invalidar é mudar o status.
+model Resposta {
+  id                  String         @id @default(uuid()) @db.Uuid
+  formularioId        String         @map("formulario_id") @db.Uuid
+  municipioCodigoIbge Int            @map("municipio_codigo_ibge")
+  status              RespostaStatus @default(VALIDA)
+  origem              RespostaOrigem
+
+  /// Hash irreversível do identificador do dispositivo. Nunca em claro, nunca em log.
+  dispositivoHash String @map("dispositivo_hash") @db.Char(64)
+
+  /// Momento do aceite do termo de consentimento. Sem aceite não se grava resposta.
+  consentimentoEm DateTime @map("consentimento_em") @db.Timestamptz(6)
+
+  /// Geolocalização opcional, só com permissão explícita, usada apenas para conferência.
+  latitude  Decimal? @db.Decimal(9, 6)
+  longitude Decimal? @db.Decimal(9, 6)
+
+  coletadoEm        DateTime  @map("coletado_em") @db.Timestamptz(6)
+  recebidoEm        DateTime  @default(now()) @map("recebido_em") @db.Timestamptz(6)
+  motivoConferencia String?   @map("motivo_conferencia") @db.VarChar(240)
+  invalidadaEm      DateTime? @map("invalidada_em") @db.Timestamptz(6)
+  invalidadaPorId   String?   @map("invalidada_por_id") @db.Uuid
+  motivoInvalidacao String?   @map("motivo_invalidacao") @db.VarChar(240)
+
+  /// Data a partir da qual a resposta entra na rotina automática de expurgo (4 anos).
+  expurgarApos DateTime? @map("expurgar_apos") @db.Timestamptz(6)
+
+  formulario    Formulario     @relation(fields: [formularioId], references: [id], onDelete: Restrict)
+  municipio     Municipio      @relation(fields: [municipioCodigoIbge], references: [codigoIbge], onDelete: Restrict)
+  invalidadaPor Usuario?       @relation("RespostaInvalidadaPor", fields: [invalidadaPorId], references: [id], onDelete: SetNull)
+  itens         RespostaItem[]
+
+  @@index([formularioId, status])
+  @@index([formularioId, municipioCodigoIbge, status])
+  @@index([recebidoEm])
+  @@map("resposta")
+}
+
+enum RespostaStatus {
+  VALIDA
+  EM_CONFERENCIA
+  INVALIDADA
+
+  @@map("resposta_status")
+}
+
+enum RespostaOrigem {
+  APLICATIVO
+  WEB
+
+  @@map("resposta_origem")
+}
+
+/// Item da resposta. Nunca achatar em JSON: a apuração depende do dado estruturado.
+model RespostaItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  respostaId    String   @map("resposta_id") @db.Uuid
+  perguntaId    String   @map("pergunta_id") @db.Uuid
+  alternativaId String?  @map("alternativa_id") @db.Uuid
+  valorTexto    String?  @map("valor_texto") @db.VarChar(1000)
+  valorNumero   Decimal? @map("valor_numero") @db.Decimal(18, 4)
+  criadoEm      DateTime @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  resposta    Resposta     @relation(fields: [respostaId], references: [id], onDelete: Cascade)
+  pergunta    Pergunta     @relation(fields: [perguntaId], references: [id], onDelete: Restrict)
+  alternativa Alternativa? @relation(fields: [alternativaId], references: [id], onDelete: Restrict)
+
+  @@unique([respostaId, perguntaId, alternativaId])
+  @@index([perguntaId, alternativaId])
+  @@index([respostaId])
+  @@map("resposta_item")
+}
+
+// ---------------------------------------------------------------------------
+// Auditoria
+// ---------------------------------------------------------------------------
+
+/// Nunca registrar token, credencial, hash de dispositivo ou qualquer dado
+/// que permita reidentificar o respondente.
+model LogAuditoria {
+  id         String        @id @default(uuid()) @db.Uuid
+  usuarioId  String?       @map("usuario_id") @db.Uuid
+  acao       AuditoriaAcao
+  entidade   String        @db.VarChar(60)
+  entidadeId String?       @map("entidade_id") @db.VarChar(64)
+  detalhe    Json?
+  criadoEm   DateTime      @default(now()) @map("criado_em") @db.Timestamptz(6)
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([usuarioId, criadoEm])
+  @@index([acao, criadoEm])
+  @@map("log_auditoria")
+}
+
+enum AuditoriaAcao {
+  LOGIN
+  LOGIN_FALHA
+  LOGOUT
+  PERMISSAO_ALTERADA
+  FORMULARIO_CRIADO
+  FORMULARIO_PUBLICADO
+  COLETA_ENCERRADA
+  RESPOSTA_INVALIDADA
+  EXPORTACAO_GERADA
+
+  @@map("auditoria_acao")
+}

@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Protótipo de baixa fidelidade — Pesquisa Eleitoral</title>
+    <style>
+      :root {
+        --tinta: #1d1d1d;
+        --suave: #6b6b6b;
+        --linha: #b9b9b9;
+        --caixa: #ededed;
+        --fundo: #fbfbfb;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--fundo);
+        color: var(--tinta);
+        font-family: "Segoe UI", system-ui, sans-serif;
+        line-height: 1.45;
+      }
+      .conteudo { max-width: 1180px; margin: 0 auto; padding: 32px 24px 64px; }
+      h1 { font-size: 24px; margin: 0 0 6px; }
+      .legenda { color: var(--suave); margin: 0 0 8px; font-size: 14px; }
+      .aviso {
+        border: 1px dashed var(--linha); background: #fff; padding: 12px 14px;
+        font-size: 13px; color: var(--suave); margin: 20px 0 32px;
+      }
+      h2 {
+        font-size: 15px; text-transform: uppercase; letter-spacing: .08em;
+        border-bottom: 2px solid var(--tinta); padding-bottom: 6px; margin: 40px 0 20px;
+      }
+      .grade { display: flex; flex-wrap: wrap; gap: 22px; }
+      .tela { width: 244px; }
+      .tela > figcaption { font-size: 12px; color: var(--suave); margin-top: 6px; }
+      .tela > figcaption b { color: var(--tinta); display: block; font-size: 12.5px; }
+      .celular {
+        border: 2px solid var(--tinta); border-radius: 14px; background: #fff;
+        height: 430px; padding: 10px; display: flex; flex-direction: column; gap: 7px;
+      }
+      .desktop {
+        border: 2px solid var(--tinta); border-radius: 6px; background: #fff;
+        height: 330px; padding: 10px; display: flex; flex-direction: column; gap: 7px;
+      }
+      .larga { width: 100%; max-width: 560px; }
+      .barra {
+        font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+        color: var(--suave); border-bottom: 1px solid var(--linha); padding-bottom: 5px;
+      }
+      .t { font-size: 12.5px; font-weight: 600; }
+      .p { font-size: 11.5px; color: var(--suave); }
+      .cx { background: var(--caixa); border: 1px solid var(--linha); border-radius: 3px; }
+      .campo { height: 26px; display: flex; align-items: center; padding: 0 7px; font-size: 11px; color: var(--suave); }
+      .bloco { flex: 1; }
+      .btn {
+        border: 1.5px solid var(--tinta); border-radius: 3px; text-align: center;
+        font-size: 11.5px; padding: 6px; font-weight: 600;
+      }
+      .btn.secundario { border-style: dashed; font-weight: 400; color: var(--suave); }
+      .opcao { display: flex; align-items: center; gap: 6px; font-size: 11.5px; padding: 5px 7px; }
+      .radio { width: 12px; height: 12px; border: 1.5px solid var(--suave); border-radius: 50%; flex: none; }
+      .radio.marcado { border-color: var(--tinta); background: radial-gradient(var(--tinta) 40%, #fff 42%); }
+      .lista > div { border-bottom: 1px dashed var(--linha); }
+      .lista > div:last-child { border-bottom: 0; }
+      .progresso { height: 5px; background: var(--caixa); border: 1px solid var(--linha); border-radius: 3px; overflow: hidden; }
+      .progresso i { display: block; height: 100%; background: var(--suave); }
+      .grafico { display: flex; align-items: flex-end; gap: 8px; height: 96px; padding: 6px; }
+      .grafico i { flex: 1; background: var(--caixa); border: 1px solid var(--linha); }
+      .colunas { display: flex; gap: 7px; flex: 1; min-height: 0; }
+      .nota { font-size: 10.5px; color: var(--suave); font-style: italic; }
+      .tag {
+        display: inline-block; border: 1px solid var(--linha); border-radius: 10px;
+        padding: 1px 7px; font-size: 10px; color: var(--suave);
+      }
+      table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 10px; }
+      th, td { border: 1px solid var(--linha); padding: 6px 8px; text-align: left; vertical-align: top; }
+      th { background: var(--caixa); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+    </style>
+  </head>
+  <body>
+    <div class="conteudo">
+      <h1>Protótipo de baixa fidelidade</h1>
+      <p class="legenda">Sistema de Pesquisa Eleitoral — Bahia · Sprint 0 · task S0-05</p>
+
+      <div class="aviso">
+        Baixa fidelidade de propósito: as caixas indicam <b>o que</b> cada tela pede e em que
+        ordem, não como ela vai parecer. Cor, tipografia e identidade visual entram depois da
+        aprovação deste fluxo. <b>A aprovação é pré-requisito da Sprint 1.</b>
+      </div>
+
+      <h2>1. Coleta — aplicativo, respondente sem conta</h2>
+      <div class="grade">
+        <figure class="tela">
+          <div class="celular">
+            <div class="barra">Abertura</div>
+            <div class="cx bloco" style="display:flex;align-items:center;justify-content:center">
+              <span class="p">marca da pesquisa</span>
+            </div>
+            <div class="t">Verificando versão…</div>
+            <div class="p">Se houver versão nova, o app pede a atualização antes de continuar.</div>
+            <div class="btn secundario">Atualizar agora</div>
+          </div>
+          <figcaption><b>A1 · Abertura</b>Verificação de versão substitui a atualização automática da loja.</figcaption>
+        </figure>
+
+        <figure class="tela">
+          <div class="celular">
+            <div class="barra">Consentimento</div>
+            <div class="t">Antes de começar</div>
+            <div class="cx bloco" style="padding:8px">
+              <div class="p">Texto do termo: a resposta é anônima, não coletamos nome, telefone nem documento; finalidade, prazo de guarda (4 anos) e contato do responsável.</div>
+            </div>
+            <div class="opcao"><span class="radio"></span> Li e concordo</div>
+            <div class="btn">Começar</div>
+            <div class="nota">Sem aceite registrado, nada é gravado.</div>
+          </div>
+          <figcaption><b>A2 · Consentimento</b>Antecede a primeira pergunta, sempre.</figcaption>
+        </figure>
+
+        <figure class="tela">
+          <div class="celular">
+            <div class="barra">Município · passo 1</div>
+            <div class="t">Onde você mora?</div>
+            <div class="cx campo">buscar município…</div>
+            <div class="cx lista bloco">
+              <div class="opcao"><span class="radio marcado"></span> Salvador</div>
+              <div class="opcao"><span class="radio"></span> Salinas da Margarida</div>
+              <div class="opcao"><span class="radio"></span> Saubara</div>
+              <div class="opcao"><span class="radio"></span> Santaluz</div>
+            </div>
+            <div class="nota">Lista fechada dos 417 municípios da Bahia. Não há digitação livre.</div>
+            <div class="btn">Continuar</div>
+          </div>
+          <figcaption><b>A3 · Município</b>Seleção pelo código IBGE, nunca por texto digitado.</figcaption>
+        </figure>
+
+        <figure class="tela">
+          <div class="celular">
+            <div class="barra">Pergunta 3 de 12</div>
+            <div class="progresso"><i style="width:25%"></i></div>
+            <div class="t">Enunciado da pergunta ocupa até três linhas nesta área.</div>
+            <div class="cx lista bloco">
+              <div class="opcao"><span class="radio"></span> Alternativa A</div>
+              <div class="opcao"><span class="radio marcado"></span> Alternativa B</div>
+              <div class="opcao"><span class="radio"></span> Alternativa C</div>
+              <div class="opcao"><span class="radio"></span> Não sei / prefiro não responder</div>
+            </div>
+            <div style="display:flex;gap:7px">
+              <div class="btn secundario" style="flex:1">Voltar</div>
+              <div class="btn" style="flex:1">Avançar</div>
+            </div>
+            <div class="nota">Preenchimento parcial salvo no dispositivo a cada passo.</div>
+          </div>
+          <figcaption><b>A4 · Pergunta</b>Uma pergunta por tela; a lógica condicional decide a próxima.</figcaption>
+        </figure>
+
+        <figure class="tela">
+          <div class="celular">
+            <div class="barra">Revisão</div>
+            <div class="t">Confira antes de enviar</div>
+            <div class="cx lista bloco">
+              <div class="opcao">Município · Salvador</div>
+              <div class="opcao">1. Resposta escolhida</div>
+              <div class="opcao">2. Resposta escolhida</div>
+              <div class="opcao">3. Resposta escolhida</div>
+            </div>
+            <div class="opcao"><span class="radio"></span> Permitir usar minha localização (opcional)</div>
+            <div class="btn">Enviar respostas</div>
+          </div>
+          <figcaption><b>A5 · Revisão</b>Localização é opcional, explícita e só para conferência.</figcaption>
+        </figure>
+
+        <figure class="tela">
+          <div class="celular">
+            <div class="barra">Envio</div>
+            <div class="cx bloco" style="display:flex;align-items:center;justify-content:center">
+              <span class="p">ícone de envio pendente</span>
+            </div>
+            <div class="t">Sem conexão agora</div>
+            <div class="p">A resposta ficou guardada no aparelho e será enviada sozinha quando a internet voltar. Pode fechar o app.</div>
+            <div class="btn secundario">Tentar novamente</div>
+          </div>
+          <figcaption><b>A6 · Pendência</b>Falha no envio agenda reenvio; a resposta nunca se perde.</figcaption>
+        </figure>
+
+        <figure class="tela">
+          <div class="celular">
+            <div class="barra">Conclusão</div>
+            <div class="cx bloco" style="display:flex;align-items:center;justify-content:center">
+              <span class="p">confirmação</span>
+            </div>
+            <div class="t">Resposta registrada</div>
+            <div class="p">Obrigado por participar. Sua resposta é anônima.</div>
+            <div class="nota">Este aparelho já respondeu esta pesquisa.</div>
+          </div>
+          <figcaption><b>A7 · Conclusão</b>Novo envio do mesmo aparelho é barrado pelo hash de dispositivo.</figcaption>
+        </figure>
+      </div>
+
+      <h2>2. Administração — aplicativo, perfil Administrador</h2>
+      <div class="grade">
+        <figure class="tela">
+          <div class="celular">
+            <div class="barra">Acesso</div>
+            <div class="t">Entrar</div>
+            <div class="cx campo">e-mail</div>
+            <div class="cx campo">senha</div>
+            <div class="btn">Entrar</div>
+            <div class="bloco"></div>
+            <div class="nota">Só Administrador e Analista têm conta. O respondente, não.</div>
+          </div>
+          <figcaption><b>B1 · Login</b>Login e falha de login entram na auditoria.</figcaption>
+        </figure>
+
+        <figure class="tela">
+          <div class="celular">
+            <div class="barra">Formulários</div>
+            <div class="t">Pesquisas</div>
+            <div class="cx lista bloco">
+              <div class="opcao">Intenção de voto — 1ª rodada <span class="tag">em coleta</span></div>
+              <div class="opcao">Avaliação de gestão <span class="tag">rascunho</span></div>
+              <div class="opcao">Piloto interno <span class="tag">encerrado</span></div>
+            </div>
+            <div class="btn">Novo formulário</div>
+          </div>
+          <figcaption><b>B2 · Lista</b>Status governa o que pode ser editado.</figcaption>
+        </figure>
+
+        <figure class="tela">
+          <div class="celular">
+            <div class="barra">Rascunho</div>
+            <div class="cx campo">título</div>
+            <div class="cx campo">período de vigência</div>
+            <div class="t">Perguntas</div>
+            <div class="cx lista bloco">
+              <div class="opcao">1. Enunciado · única escolha</div>
+              <div class="opcao">2. Enunciado · múltipla escolha</div>
+              <div class="opcao">3. Enunciado · texto livre</div>
+            </div>
+            <div class="btn secundario">Adicionar pergunta</div>
+            <div class="btn">Publicar</div>
+          </div>
+          <figcaption><b>B3 · Montagem</b>Perguntas e alternativas com ordem definida.</figcaption>
+        </figure>
+
+        <figure class="tela">
+          <div class="celular">
+            <div class="barra">Publicação</div>
+            <div class="t">Publicar esta pesquisa?</div>
+            <div class="cx bloco" style="padding:8px">
+              <div class="p">Depois de entrar em coleta, perguntas e alternativas não podem mais ser alteradas. Para mudar o conteúdo será preciso criar uma nova versão.</div>
+            </div>
+            <div class="btn">Confirmar publicação</div>
+            <div class="btn secundario">Cancelar</div>
+          </div>
+          <figcaption><b>B4 · Publicação</b>Imutabilidade avisada na tela; ação auditada.</figcaption>
+        </figure>
+
+        <figure class="tela">
+          <div class="celular">
+            <div class="barra">Integridade</div>
+            <div class="t">Em conferência</div>
+            <div class="cx lista bloco">
+              <div class="opcao">#a1c9 · município fora da BA</div>
+              <div class="opcao">#77f2 · envio muito rápido</div>
+              <div class="opcao">#0b3e · reenvio do mesmo aparelho</div>
+            </div>
+            <div class="btn secundario">Manter válida</div>
+            <div class="btn">Invalidar com motivo</div>
+            <div class="nota">Invalidar muda o status; o registro permanece no banco.</div>
+          </div>
+          <figcaption><b>B5 · Conferência</b>Nada é descartado em silêncio nem excluído.</figcaption>
+        </figure>
+
+        <figure class="tela">
+          <div class="celular">
+            <div class="barra">Encerramento</div>
+            <div class="t">Encerrar a coleta?</div>
+            <div class="cx bloco" style="padding:8px">
+              <div class="p">Novas respostas deixam de ser aceitas. Os dados técnicos de duplicidade são apagados no encerramento. Os resultados continuam disponíveis.</div>
+            </div>
+            <div class="btn">Encerrar coleta</div>
+            <div class="btn secundario">Cancelar</div>
+          </div>
+          <figcaption><b>B6 · Encerramento</b>Ação auditada e irreversível.</figcaption>
+        </figure>
+      </div>
+
+      <h2>3. Painel web — Administrador e Analista</h2>
+      <div class="grade">
+        <figure class="tela larga">
+          <div class="desktop">
+            <div class="barra">painel · acesso</div>
+            <div style="display:flex;flex:1;align-items:center;justify-content:center">
+              <div style="width:220px;display:flex;flex-direction:column;gap:7px">
+                <div class="t">Entrar no painel</div>
+                <div class="cx campo">e-mail</div>
+                <div class="cx campo">senha</div>
+                <div class="btn">Entrar</div>
+              </div>
+            </div>
+          </div>
+          <figcaption><b>C1 · Login</b>O menu do Analista não mostra administração — e a API também recusa a rota.</figcaption>
+        </figure>
+
+        <figure class="tela larga">
+          <div class="desktop">
+            <div class="barra">painel · visão geral</div>
+            <div style="display:flex;gap:7px">
+              <div class="cx campo" style="flex:1">pesquisa</div>
+              <div class="cx campo" style="flex:1">período</div>
+              <div class="cx campo" style="flex:1">município</div>
+              <div class="btn secundario" style="width:90px">Exportar</div>
+            </div>
+            <div class="colunas">
+              <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+                <div class="cx" style="padding:7px"><div class="p">respostas válidas</div><div class="t">0.000</div></div>
+                <div class="cx" style="padding:7px"><div class="p">municípios alcançados</div><div class="t">000 / 417</div></div>
+                <div class="cx" style="padding:7px"><div class="p">em conferência</div><div class="t">000</div></div>
+              </div>
+              <div class="cx" style="flex:2;display:flex;flex-direction:column">
+                <div class="p" style="padding:6px 8px 0">resultado da pergunta principal (%)</div>
+                <div class="grafico"><i style="height:80%"></i><i style="height:55%"></i><i style="height:38%"></i><i style="height:20%"></i><i style="height:10%"></i></div>
+              </div>
+            </div>
+            <div class="nota">Percentual sempre calculado sobre respostas válidas, a partir de agregados pré-calculados.</div>
+          </div>
+          <figcaption><b>C2 · Visão geral</b>Filtros de pesquisa, período e município.</figcaption>
+        </figure>
+
+        <figure class="tela larga">
+          <div class="desktop">
+            <div class="barra">painel · por município</div>
+            <div style="display:flex;gap:7px">
+              <div class="cx campo" style="flex:1">buscar município</div>
+              <div class="cx campo" style="width:120px">ordenar por</div>
+            </div>
+            <div class="colunas">
+              <div class="cx" style="flex:1;display:flex;align-items:center;justify-content:center">
+                <span class="p">mapa da Bahia por município</span>
+              </div>
+              <div class="cx lista" style="flex:1">
+                <div class="opcao">Salvador · 0.000 respostas</div>
+                <div class="opcao">Feira de Santana · 000</div>
+                <div class="opcao">Vitória da Conquista · 000</div>
+                <div class="opcao">Camaçari · 000</div>
+                <div class="opcao">Juazeiro · 000</div>
+              </div>
+            </div>
+            <div class="nota">Município identificado pelo código IBGE em toda a apuração.</div>
+          </div>
+          <figcaption><b>C3 · Por município</b>Objetivo central do sistema.</figcaption>
+        </figure>
+
+        <figure class="tela larga">
+          <div class="desktop">
+            <div class="barra">painel · exportação</div>
+            <div class="t">Exportar resultado</div>
+            <div style="display:flex;gap:7px">
+              <div class="opcao cx" style="flex:1"><span class="radio marcado"></span> XLSX</div>
+              <div class="opcao cx" style="flex:1"><span class="radio"></span> PDF</div>
+            </div>
+            <div class="cx campo">filtros aplicados: pesquisa, período, município</div>
+            <div class="cx bloco" style="padding:8px">
+              <div class="p">A exportação pesada é gerada em segundo plano; o arquivo fica disponível para download quando termina.</div>
+            </div>
+            <div class="btn" style="width:140px">Gerar exportação</div>
+            <div class="nota">Somente agregados. Exportação é registrada na auditoria.</div>
+          </div>
+          <figcaption><b>C4 · Exportação</b>Nenhuma resposta individual identificável sai do sistema.</figcaption>
+        </figure>
+      </div>
+
+      <h2>4. O que este protótipo já decide</h2>
+      <table>
+        <tr><th>Decisão</th><th>Onde aparece</th></tr>
+        <tr><td>Consentimento antes da primeira pergunta</td><td>A2</td></tr>
+        <tr><td>Município por lista fechada, sem digitação livre</td><td>A3</td></tr>
+        <tr><td>Uma pergunta por tela, com progresso e preenchimento parcial salvo</td><td>A4</td></tr>
+        <tr><td>Geolocalização opcional, pedida de forma explícita</td><td>A5</td></tr>
+        <tr><td>Falha de envio vira pendência com reenvio, nunca perda</td><td>A6</td></tr>
+        <tr><td>Publicação avisa que o conteúdo passa a ser imutável</td><td>B4</td></tr>
+        <tr><td>Invalidar exige motivo e não apaga o registro</td><td>B5</td></tr>
+        <tr><td>Painel mostra percentual sobre respostas válidas</td><td>C2</td></tr>
+        <tr><td>Apuração por município como tela própria</td><td>C3</td></tr>
+        <tr><td>Exportação pesada em segundo plano e auditada</td><td>C4</td></tr>
+      </table>
+
+      <h2>5. Aprovação</h2>
+      <p class="legenda">
+        Status: <b>aguardando aprovação</b>. A Sprint 1 depende deste aceite.
+        Registre a aprovação (ou os ajustes) em <code>docs/prototipo/README.md</code>.
+      </p>
+    </div>
+  </body>
+</html>
