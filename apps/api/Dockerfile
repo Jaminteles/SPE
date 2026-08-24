@@ -1,7 +1,10 @@
 # ---- base ----------------------------------------------------------------
 FROM node:20-alpine AS base
 WORKDIR /app
-RUN apk add --no-cache openssl
+# Chromium do sistema: a exportacao em PDF renderiza o painel no Puppeteer, e o
+# Chromium que ele baixa por padrao e compilado para glibc — nao roda em Alpine.
+RUN apk add --no-cache openssl chromium nss freetype harfbuzz ca-certificates ttf-freefont
+ENV PUPPETEER_SKIP_DOWNLOAD=true     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # ---- dependencias --------------------------------------------------------
 FROM base AS deps

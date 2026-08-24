@@ -1,4 +1,4 @@
-import { ErroApi, chamar } from '../api/cliente';
+import { ErroApi, baixar, chamar } from '../api/cliente';
 
 export type Perfil = 'ADMINISTRADOR' | 'ANALISTA';
 
@@ -110,6 +110,39 @@ export const sessao = {
       // A sessão pode já ter morrido no servidor; o que importa é limpar aqui.
     }
     limpar();
+  },
+
+  /**
+   * Adota um access token já emitido, sem passar pelo login.
+   *
+   * Existe para o modo de impressão: o renderizador de PDF injeta no contexto
+   * da página o token de quem pediu a exportação. O valor fica só em memória —
+   * nunca vai para `localStorage`, para a URL nem para log.
+   */
+  adotarToken(token: string): void {
+    accessToken = token;
+  },
+
+  /** Download autenticado, com uma tentativa de renovação. */
+  async baixarAutenticado(caminho: string): Promise<{ conteudo: Blob; nome: string }> {
+    if (!accessToken) {
+      await renovar();
+    }
+
+    try {
+      return await baixar(caminho, accessToken ?? '');
+    } catch (falha) {
+      if (!(falha instanceof ErroApi) || falha.status !== 401) {
+        throw falha;
+      }
+
+      try {
+        return await baixar(caminho, await renovar());
+      } catch {
+        limpar();
+        throw new SessaoEncerrada();
+      }
+    }
   },
 
   /** Chamada autenticada com uma tentativa de renovação. */

@@ -1,8 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { UsuarioLogado, sessao } from './auth/sessao';
+import { ModoImpressao, lerModoImpressao } from './impressao/modo-impressao';
 import { Login } from './paginas/Login';
 import { Painel } from './paginas/Painel';
+
+/**
+ * Modo de impressão: a API abre esta mesma página no Puppeteer para gerar o
+ * PDF. Lido uma vez, fora do React, porque decide qual sessão vale antes do
+ * primeiro render.
+ */
+const impressao: ModoImpressao | null = lerModoImpressao(window.location.search);
+if (impressao) {
+  sessao.adotarToken(impressao.token);
+}
 
 export function App() {
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
@@ -11,8 +22,9 @@ export function App() {
   useEffect(() => {
     let ativo = true;
 
-    sessao
-      .retomar()
+    // Na impressão não há refresh token: a identidade é a de quem pediu a
+    // exportação, que chegou injetada no contexto da página.
+    (impressao ? sessao.usuarioAtual().catch(() => null) : sessao.retomar())
       .then((retomado) => {
         if (ativo) {
           setUsuario(retomado);
@@ -49,5 +61,14 @@ export function App() {
     return <Login aoEntrar={setUsuario} />;
   }
 
-  return <Painel usuario={usuario} aoSair={sair} aoPerderSessao={perderSessao} />;
+  return (
+    <Painel
+      usuario={usuario}
+      aoSair={sair}
+      aoPerderSessao={perderSessao}
+      impressao={
+        impressao ? { formularioId: impressao.formularioId, filtros: impressao.filtros } : undefined
+      }
+    />
+  );
 }

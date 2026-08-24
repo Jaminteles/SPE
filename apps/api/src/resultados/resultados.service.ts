@@ -1,11 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
 import {
   AlcancePorMunicipioResponse,
+  CoberturaResponse,
+  CruzamentoDto,
+  CruzamentoResponse,
   EvolucaoResponse,
   FiltroDeResultadoDto,
   FormularioComResultadoResponse,
   IndicadoresResponse,
+  RankingPorMunicipioResponse,
   ResultadoPorPerguntaResponse,
 } from './dto/resultados.dto';
 import { Recorte, ResultadosRepository } from './resultados.repository';
@@ -114,6 +118,119 @@ export class ResultadosService {
   async alcance(formularioId: string): Promise<AlcancePorMunicipioResponse> {
     await this.exigirFormulario(formularioId);
     return { municipios: await this.repositorio.alcancePorMunicipio(formularioId) };
+  }
+
+  /**
+   * Ranking por município, com absoluto e percentual **derivado** do total de
+   * respostas válidas do recorte. Empate desempata por nome, para a ordem não
+   * mudar entre duas leituras iguais.
+   */
+  async ranking(
+    formularioId: string,
+    filtro: FiltroDeResultadoDto,
+  ): Promise<RankingPorMunicipioResponse> {
+    await this.exigirFormulario(formularioId);
+
+    const recorte = this.montarRecorte(formularioId, filtro);
+    const municipios = await this.repositorio.rankingPorMunicipio(recorte);
+    const total = municipios.reduce((soma, municipio) => soma + municipio.respostasValidas, 0);
+
+    return {
+      total,
+      municipios: municipios.map((municipio, indice) => ({
+        posicao: indice + 1,
+        ...municipio,
+        percentual:
+          total === 0 ? 0 : Math.round((municipio.respostasValidas / total) * 10_000) / 100,
+      })),
+    };
+  }
+
+  /**
+   * Cobertura da Bahia. Município sem resposta aparece com zero — a tela de
+   * cobertura existe justamente para mostrar o que ainda não foi alcançado.
+   */
+  async cobertura(formularioId: string): Promise<CoberturaResponse> {
+    await this.exigirFormulario(formularioId);
+
+    const municipios = await this.repositorio.cobertura(formularioId);
+    const alcancados = municipios.filter((municipio) => municipio.respostasValidas > 0).length;
+
+    return {
+      municipiosDaBahia: municipios.length,
+      alcancados,
+      percentualDeCobertura:
+        municipios.length === 0 ? 0 : Math.round((alcancados / municipios.length) * 10_000) / 100,
+      municipios,
+    };
+  }
+
+  /**
+   * Cruzamento entre duas perguntas. O percentual de cada célula é sobre o
+   * total da **linha**: é assim que se lê "intenção de voto por faixa etária".
+   *
+   * Alternativa sem nenhuma resposta continua na tabela, com zero: célula
+   * faltando esconde informação.
+   */
+  async cruzamento(formularioId: string, filtro: CruzamentoDto): Promise<CruzamentoResponse> {
+    await this.exigirFormulario(formularioId);
+
+    if (filtro.perguntaAId === filtro.perguntaBId) {
+      throw new BadRequestException('O cruzamento exige duas perguntas diferentes.');
+    }
+
+    const estrutura = await this.repositorio.estrutura(formularioId);
+    const perguntaA = estrutura.find((pergunta) => pergunta.id === filtro.perguntaAId);
+    const perguntaB = estrutura.find((pergunta) => pergunta.id === filtro.perguntaBId);
+
+    if (!perguntaA || !perguntaB) {
+      throw new NotFoundException('Pergunta não encontrada nesta pesquisa.');
+    }
+    if (perguntaA.alternativas.length === 0 || perguntaB.alternativas.length === 0) {
+      throw new BadRequestException('Só é possível cruzar perguntas com alternativas.');
+    }
+
+    const linhas = await this.repositorio.cruzamento(
+      formularioId,
+      perguntaA.id,
+      perguntaB.id,
+      filtro.municipioCodigoIbge,
+    );
+
+    const porCelula = new Map(
+      linhas.map((linha) => [`${linha.alternativaAId}:${linha.alternativaBId}`, linha.total]),
+    );
+
+    const tabela = perguntaA.alternativas.map((alternativaA) => {
+      const celulas = perguntaB.alternativas.map((alternativaB) => ({
+        alternativaId: alternativaB.id,
+        texto: alternativaB.texto,
+        total: porCelula.get(`${alternativaA.id}:${alternativaB.id}`) ?? 0,
+      }));
+
+      const total = celulas.reduce((soma, celula) => soma + celula.total, 0);
+
+      return {
+        alternativaId: alternativaA.id,
+        texto: alternativaA.texto,
+        total,
+        celulas: celulas.map((celula) => ({
+          ...celula,
+          percentual: total === 0 ? 0 : Math.round((celula.total / total) * 10_000) / 100,
+        })),
+      };
+    });
+
+    return {
+      perguntaLinhas: { perguntaId: perguntaA.id, enunciado: perguntaA.enunciado },
+      perguntaColunas: { perguntaId: perguntaB.id, enunciado: perguntaB.enunciado },
+      total: tabela.reduce((soma, linha) => soma + linha.total, 0),
+      colunas: perguntaB.alternativas.map((alternativa) => ({
+        alternativaId: alternativa.id,
+        texto: alternativa.texto,
+      })),
+      linhas: tabela,
+    };
   }
 
   private montarRecorte(formularioId: string, filtro: FiltroDeResultadoDto): Recorte {

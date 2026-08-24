@@ -85,6 +85,11 @@ SQLite, reenvio automático): [docs/coleta.md](./docs/coleta.md).
 
 Painel web, filtros e as agregações que ele consome: [docs/resultados.md](./docs/resultados.md).
 
+## Apuração e exportação
+
+Ranking por município, cobertura da Bahia, cruzamento entre perguntas e a
+exportação em CSV, XLSX e PDF: [docs/apuracao-e-exportacao.md](./docs/apuracao-e-exportacao.md).
+
 ## Integridade
 
 Duplicidade, marcação automática de suspeita, invalidação manual e a agregação

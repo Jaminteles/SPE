@@ -11,6 +11,7 @@ const VIEWS = [
   'mv_resultado_detalhado',
   'mv_evolucao_coleta',
   'mv_alcance_municipio',
+  'mv_cruzamento_pergunta',
 ] as const;
 
 export type ViewDeResultado = (typeof VIEWS)[number];

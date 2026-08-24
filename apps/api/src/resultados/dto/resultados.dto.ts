@@ -125,3 +125,108 @@ export class AlcancePorMunicipioResponse {
   @ApiProperty({ type: [MunicipioComResultadoResponse] })
   municipios!: MunicipioComResultadoResponse[];
 }
+
+// ---------------------------------------------------------------------------
+// Cruzamento entre perguntas
+// ---------------------------------------------------------------------------
+
+/**
+ * Recorte do cruzamento. Duas perguntas distintas e, opcionalmente, um
+ * município. Período fica de fora: a view de cruzamento não tem a dimensão de
+ * dia — cruzamento é leitura de composição, não de série temporal.
+ */
+export class CruzamentoDto {
+  @ApiProperty({ description: 'Pergunta das linhas.' })
+  @IsUUID('4')
+  perguntaAId!: string;
+
+  @ApiProperty({ description: 'Pergunta das colunas.' })
+  @IsUUID('4')
+  perguntaBId!: string;
+
+  @ApiPropertyOptional({ description: 'Restringe a um município, por código IBGE.' })
+  @IsOptional()
+  @Transform(paraNumero)
+  @IsInt()
+  @Min(1_000_000)
+  @Max(9_999_999)
+  municipioCodigoIbge?: number;
+}
+
+export class CelulaDoCruzamentoResponse {
+  @ApiProperty() alternativaId!: string;
+  @ApiProperty() texto!: string;
+  @ApiProperty() total!: number;
+  @ApiProperty({ description: 'Percentual sobre o total da linha.' })
+  percentual!: number;
+}
+
+export class LinhaDoCruzamentoResponse {
+  @ApiProperty() alternativaId!: string;
+  @ApiProperty() texto!: string;
+  @ApiProperty({ description: 'Respostas válidas que caem nesta linha, no recorte.' })
+  total!: number;
+  @ApiProperty({ type: [CelulaDoCruzamentoResponse] })
+  celulas!: CelulaDoCruzamentoResponse[];
+}
+
+export class PerguntaDoCruzamentoResponse {
+  @ApiProperty() perguntaId!: string;
+  @ApiProperty() enunciado!: string;
+}
+
+export class AlternativaDoCruzamentoResponse {
+  @ApiProperty() alternativaId!: string;
+  @ApiProperty() texto!: string;
+}
+
+export class CruzamentoResponse {
+  @ApiProperty({ type: PerguntaDoCruzamentoResponse, description: 'Pergunta das linhas.' })
+  perguntaLinhas!: PerguntaDoCruzamentoResponse;
+
+  @ApiProperty({ type: PerguntaDoCruzamentoResponse, description: 'Pergunta das colunas.' })
+  perguntaColunas!: PerguntaDoCruzamentoResponse;
+
+  @ApiProperty({ description: 'Respostas válidas presentes nas duas perguntas, no recorte.' })
+  total!: number;
+
+  @ApiProperty({ type: [AlternativaDoCruzamentoResponse], description: 'Cabeçalho das colunas.' })
+  colunas!: AlternativaDoCruzamentoResponse[];
+
+  @ApiProperty({ type: [LinhaDoCruzamentoResponse] })
+  linhas!: LinhaDoCruzamentoResponse[];
+}
+
+// ---------------------------------------------------------------------------
+// Cobertura
+// ---------------------------------------------------------------------------
+
+export class CoberturaResponse {
+  @ApiProperty({ description: 'Total de municípios da Bahia.' })
+  municipiosDaBahia!: number;
+  @ApiProperty({ description: 'Municípios com ao menos uma resposta válida.' })
+  alcancados!: number;
+  @ApiProperty({ description: 'Percentual de cobertura sobre os municípios da Bahia.' })
+  percentualDeCobertura!: number;
+  @ApiProperty({
+    type: [MunicipioComResultadoResponse],
+    description: 'Todos os municípios da Bahia, com zero para os não alcançados.',
+  })
+  municipios!: MunicipioComResultadoResponse[];
+}
+
+export class MunicipioRanqueadoResponse {
+  @ApiProperty() posicao!: number;
+  @ApiProperty() codigoIbge!: number;
+  @ApiProperty() nome!: string;
+  @ApiProperty() respostasValidas!: number;
+  @ApiProperty({ description: 'Percentual sobre as respostas válidas do recorte.' })
+  percentual!: number;
+}
+
+export class RankingPorMunicipioResponse {
+  @ApiProperty({ description: 'Respostas válidas no recorte — base dos percentuais.' })
+  total!: number;
+  @ApiProperty({ type: [MunicipioRanqueadoResponse] })
+  municipios!: MunicipioRanqueadoResponse[];
+}

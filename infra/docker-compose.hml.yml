@@ -50,6 +50,13 @@ services:
       SESSAO_ABSOLUTA_HORAS: ${SESSAO_ABSOLUTA_HORAS:-8}
       # O TLS termina no proxy; a API recusa requisição que chegue em texto claro.
       TLS_OBRIGATORIO: 'true'
+      # URL publica do painel: e a unica pagina que o renderizador de PDF abre.
+      # Precisa ser a mesma origem que os usuarios acessam, senao o navegador do
+      # PDF cai no CORS da API e no VITE_API_URL embutido no build.
+      PAINEL_URL: ${PAINEL_URL:?defina PAINEL_URL}
+      EXPORTACAO_PDF_TIMEOUT_MS: ${EXPORTACAO_PDF_TIMEOUT_MS:-45000}
+      EXPORTACAO_THROTTLE_LIMITE: ${EXPORTACAO_THROTTLE_LIMITE:-6}
+      EXPORTACAO_PDF_TLS_INVALIDO: ${EXPORTACAO_PDF_TLS_INVALIDO:-false}
     expose:
       - '3000'
     depends_on:

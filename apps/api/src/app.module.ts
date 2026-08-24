@@ -10,6 +10,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PerfisGuard } from './auth/guards/perfis.guard';
 import { ColetaModule } from './coleta/coleta.module';
 import { validarAmbiente } from './config/env.config';
+import { ExportacaoModule } from './exportacao/exportacao.module';
 import { FormulariosModule } from './formularios/formularios.module';
 import { HealthModule } from './health/health.module';
 import { MunicipiosModule } from './municipios/municipios.module';
@@ -44,6 +45,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     RespostasModule,
     ResultadosModule,
     AgregacaoModule,
+    ExportacaoModule,
     HealthModule,
     MunicipiosModule,
   ],

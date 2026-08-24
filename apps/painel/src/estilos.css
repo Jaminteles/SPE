@@ -269,3 +269,45 @@ select {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+/* Cobertura: barra de progresso simples, sem dependência de gráfico. */
+.barra-cobertura {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--cor-borda);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.barra-cobertura-preenchida {
+  height: 100%;
+  background: var(--serie-1);
+}
+
+.lista-municipios {
+  columns: 3 220px;
+  margin: 12px 0 0;
+  padding-left: 18px;
+  font-size: 14px;
+  color: var(--cor-suave);
+}
+
+.exportacao .acoes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+/* Impressão: o PDF é esta mesma página, sem ação clicável e sem quebra no meio
+   de um cartão. */
+@media print {
+  .botao {
+    display: none;
+  }
+
+  .cartao,
+  .grafico-largo {
+    break-inside: avoid;
+  }
+}

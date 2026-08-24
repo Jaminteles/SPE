@@ -63,3 +63,33 @@ export async function chamar<T>(caminho: string, opcoes: Opcoes = {}): Promise<T
 
   return corpo as T;
 }
+
+/**
+ * Download autenticado. O token vai no cabeçalho, nunca na URL: link com
+ * credencial em query string vaza em log de proxy e no histórico do navegador.
+ */
+export async function baixar(
+  caminho: string,
+  token: string,
+): Promise<{ conteudo: Blob; nome: string }> {
+  let resposta: Response;
+
+  try {
+    resposta = await fetch(`${BASE_URL}${caminho}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    throw new ErroDeRede();
+  }
+
+  if (!resposta.ok) {
+    const corpo = (await resposta.json().catch(() => ({}))) as CorpoErro;
+    const mensagem = Array.isArray(corpo.mensagem) ? corpo.mensagem[0] : corpo.mensagem;
+    throw new ErroApi(resposta.status, mensagem ?? 'Não foi possível gerar o arquivo.');
+  }
+
+  const cabecalho = resposta.headers.get('Content-Disposition') ?? '';
+  const encontrado = /filename="?([^";]+)"?/i.exec(cabecalho);
+
+  return { conteudo: await resposta.blob(), nome: encontrado?.[1] ?? 'exportacao' };
+}

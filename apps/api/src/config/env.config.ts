@@ -16,6 +16,10 @@ export interface AppEnv {
   SESSAO_ABSOLUTA_HORAS: number;
   TLS_OBRIGATORIO: boolean;
   COLETA_BASE_URL: string;
+  PAINEL_URL: string;
+  EXPORTACAO_PDF_TIMEOUT_MS: number;
+  PUPPETEER_EXECUTABLE_PATH: string | undefined;
+  EXPORTACAO_PDF_TLS_INVALIDO: boolean;
   DEVICE_HASH_PEPPER: string;
   REDIS_URL: string | undefined;
   TURNSTILE_SECRET: string | undefined;
@@ -110,6 +114,16 @@ export function validarAmbiente(bruto: Record<string, unknown>): AppEnv {
     TLS_OBRIGATORIO: booleano(bruto.TLS_OBRIGATORIO, nodeEnv === 'production'),
     // Base do link público de coleta, sem barra no fim.
     COLETA_BASE_URL: String(bruto.COLETA_BASE_URL ?? 'http://localhost:5173').replace(/\/+$/, ''),
+    // Origem do painel: é a única página que o renderizador de PDF abre.
+    PAINEL_URL: String(bruto.PAINEL_URL ?? 'http://localhost:5173').replace(/\/+$/, ''),
+    EXPORTACAO_PDF_TIMEOUT_MS: inteiro(
+      bruto.EXPORTACAO_PDF_TIMEOUT_MS as string | undefined,
+      45_000,
+      'EXPORTACAO_PDF_TIMEOUT_MS',
+    ),
+    // Caminho do navegador quando a imagem já traz um Chromium instalado.
+    PUPPETEER_EXECUTABLE_PATH: (bruto.PUPPETEER_EXECUTABLE_PATH as string | undefined) || undefined,
+    EXPORTACAO_PDF_TLS_INVALIDO: booleano(bruto.EXPORTACAO_PDF_TLS_INVALIDO, false),
     DEVICE_HASH_PEPPER: pepper,
     REDIS_URL: (bruto.REDIS_URL as string | undefined) || undefined,
     // Sem segredo o desafio fica desligado; em produção, ligue o obrigatório.

@@ -5,10 +5,14 @@ import { PerfilCodigo } from '@prisma/client';
 import { Perfis } from '../auth/decorators/perfis.decorator';
 import {
   AlcancePorMunicipioResponse,
+  CoberturaResponse,
+  CruzamentoDto,
+  CruzamentoResponse,
   EvolucaoResponse,
   FiltroDeResultadoDto,
   FormularioComResultadoResponse,
   IndicadoresResponse,
+  RankingPorMunicipioResponse,
   ResultadoPorPerguntaResponse,
 } from './dto/resultados.dto';
 import { ResultadosService } from './resultados.service';
@@ -65,6 +69,35 @@ export class ResultadosController {
     @Query() filtro: FiltroDeResultadoDto,
   ): Promise<EvolucaoResponse> {
     return this.servico.evolucao(formularioId, filtro);
+  }
+
+  @Get(':formularioId/ranking-municipios')
+  @ApiOperation({ summary: 'Ranking por município, com absolutos e percentuais.' })
+  @ApiOkResponse({ type: RankingPorMunicipioResponse })
+  async ranking(
+    @Param('formularioId', ParseUUIDPipe) formularioId: string,
+    @Query() filtro: FiltroDeResultadoDto,
+  ): Promise<RankingPorMunicipioResponse> {
+    return this.servico.ranking(formularioId, filtro);
+  }
+
+  @Get(':formularioId/cobertura')
+  @ApiOperation({ summary: 'Cobertura: municípios alcançados e não alcançados.' })
+  @ApiOkResponse({ type: CoberturaResponse })
+  async cobertura(
+    @Param('formularioId', ParseUUIDPipe) formularioId: string,
+  ): Promise<CoberturaResponse> {
+    return this.servico.cobertura(formularioId);
+  }
+
+  @Get(':formularioId/cruzamento')
+  @ApiOperation({ summary: 'Cruzamento entre duas perguntas do mesmo formulário.' })
+  @ApiOkResponse({ type: CruzamentoResponse })
+  async cruzamento(
+    @Param('formularioId', ParseUUIDPipe) formularioId: string,
+    @Query() filtro: CruzamentoDto,
+  ): Promise<CruzamentoResponse> {
+    return this.servico.cruzamento(formularioId, filtro);
   }
 
   @Get(':formularioId/municipios')

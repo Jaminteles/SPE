@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PerguntaTipo } from '@prisma/client';
 
@@ -17,6 +17,9 @@ describe('ResultadosService', () => {
     estrutura: jest.fn(),
     evolucao: jest.fn(),
     alcancePorMunicipio: jest.fn(),
+    rankingPorMunicipio: jest.fn(),
+    cobertura: jest.fn(),
+    cruzamento: jest.fn(),
     formularioExiste: jest.fn(),
   };
 
@@ -182,6 +185,157 @@ describe('ResultadosService', () => {
       repositorio.evolucao.mockResolvedValue([]);
 
       await expect(servico.evolucao('form-1', {})).resolves.toEqual({ pontos: [] });
+    });
+  });
+});
+
+describe('ResultadosService — ranking, cobertura e cruzamento', () => {
+  let servico: ResultadosService;
+
+  const repositorio = {
+    formulariosComResultado: jest.fn(),
+    resumo: jest.fn(),
+    respostasValidasNoRecorte: jest.fn(),
+    totalDeMunicipiosDaBahia: jest.fn(),
+    totaisPorAlternativa: jest.fn(),
+    estrutura: jest.fn(),
+    evolucao: jest.fn(),
+    alcancePorMunicipio: jest.fn(),
+    rankingPorMunicipio: jest.fn(),
+    cobertura: jest.fn(),
+    cruzamento: jest.fn(),
+    formularioExiste: jest.fn(),
+  };
+
+  const estrutura = [
+    {
+      id: 'p1',
+      enunciado: 'Em quem você votaria?',
+      tipo: PerguntaTipo.UNICA_ESCOLHA,
+      ordem: 1,
+      alternativas: [
+        { id: 'a1', texto: 'Candidato A', ordem: 1 },
+        { id: 'a2', texto: 'Candidato B', ordem: 2 },
+      ],
+    },
+    {
+      id: 'p2',
+      enunciado: 'Faixa etária',
+      tipo: PerguntaTipo.UNICA_ESCOLHA,
+      ordem: 2,
+      alternativas: [
+        { id: 'b1', texto: '16 a 24', ordem: 1 },
+        { id: 'b2', texto: '25 a 59', ordem: 2 },
+      ],
+    },
+    {
+      id: 'p3',
+      enunciado: 'Comentário',
+      tipo: PerguntaTipo.TEXTO_LIVRE,
+      ordem: 3,
+      alternativas: [],
+    },
+  ];
+
+  beforeEach(async () => {
+    jest.resetAllMocks();
+    repositorio.formularioExiste.mockResolvedValue(true);
+    repositorio.estrutura.mockResolvedValue(estrutura);
+
+    const modulo = await Test.createTestingModule({
+      providers: [ResultadosService, { provide: ResultadosRepository, useValue: repositorio }],
+    }).compile();
+    servico = modulo.get(ResultadosService);
+  });
+
+  describe('ranking por município', () => {
+    it('numera as posições e deriva o percentual do total do recorte', async () => {
+      repositorio.rankingPorMunicipio.mockResolvedValue([
+        { codigoIbge: 2927408, nome: 'Salvador', respostasValidas: 150 },
+        { codigoIbge: 2910800, nome: 'Feira de Santana', respostasValidas: 50 },
+      ]);
+
+      const ranking = await servico.ranking('form-1', {});
+
+      expect(ranking.total).toBe(200);
+      expect(ranking.municipios.map((m) => m.posicao)).toEqual([1, 2]);
+      expect(ranking.municipios.map((m) => m.percentual)).toEqual([75, 25]);
+    });
+
+    it('não divide por zero quando o recorte não tem resposta', async () => {
+      repositorio.rankingPorMunicipio.mockResolvedValue([]);
+
+      const ranking = await servico.ranking('form-1', {});
+
+      expect(ranking).toEqual({ total: 0, municipios: [] });
+    });
+
+    it('recusa pesquisa inexistente ou em rascunho', async () => {
+      repositorio.formularioExiste.mockResolvedValue(false);
+
+      await expect(servico.ranking('form-1', {})).rejects.toBeInstanceOf(NotFoundException);
+      await expect(servico.cobertura('form-1')).rejects.toBeInstanceOf(NotFoundException);
+      await expect(
+        servico.cruzamento('form-1', { perguntaAId: 'p1', perguntaBId: 'p2' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+  });
+
+  describe('cobertura', () => {
+    it('conta alcançados e mantém o não alcançado na lista, com zero', async () => {
+      repositorio.cobertura.mockResolvedValue([
+        { codigoIbge: 2927408, nome: 'Salvador', respostasValidas: 10 },
+        { codigoIbge: 2910800, nome: 'Feira de Santana', respostasValidas: 0 },
+        { codigoIbge: 2905701, nome: 'Camaçari', respostasValidas: 0 },
+      ]);
+
+      const cobertura = await servico.cobertura('form-1');
+
+      expect(cobertura.municipiosDaBahia).toBe(3);
+      expect(cobertura.alcancados).toBe(1);
+      expect(cobertura.percentualDeCobertura).toBeCloseTo(33.33, 2);
+      expect(cobertura.municipios).toHaveLength(3);
+    });
+  });
+
+  describe('cruzamento', () => {
+    it('monta a matriz com percentual sobre o total da linha', async () => {
+      repositorio.cruzamento.mockResolvedValue([
+        { alternativaAId: 'a1', alternativaBId: 'b1', total: 30 },
+        { alternativaAId: 'a1', alternativaBId: 'b2', total: 10 },
+        { alternativaAId: 'a2', alternativaBId: 'b2', total: 20 },
+      ]);
+
+      const cruzamento = await servico.cruzamento('form-1', {
+        perguntaAId: 'p1',
+        perguntaBId: 'p2',
+      });
+
+      expect(cruzamento.total).toBe(60);
+      expect(cruzamento.colunas.map((c) => c.texto)).toEqual(['16 a 24', '25 a 59']);
+
+      const [primeira, segunda] = cruzamento.linhas;
+      expect(primeira.total).toBe(40);
+      expect(primeira.celulas.map((c) => c.percentual)).toEqual([75, 25]);
+      // Combinação sem nenhuma resposta aparece zerada, não some da tabela.
+      expect(segunda.celulas.map((c) => c.total)).toEqual([0, 20]);
+      expect(segunda.celulas.map((c) => c.percentual)).toEqual([0, 100]);
+    });
+
+    it('recusa cruzar uma pergunta com ela mesma ou sem alternativas', async () => {
+      await expect(
+        servico.cruzamento('form-1', { perguntaAId: 'p1', perguntaBId: 'p1' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+
+      await expect(
+        servico.cruzamento('form-1', { perguntaAId: 'p1', perguntaBId: 'p3' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('recusa pergunta que não é da pesquisa', async () => {
+      await expect(
+        servico.cruzamento('form-1', { perguntaAId: 'p1', perguntaBId: 'p9' }),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

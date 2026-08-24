@@ -14,3 +14,5 @@ process.env.COLETA_THROTTLE_LIMITE_ENVIO ??= '40';
 // milissegundos. A suite de integridade liga os limites de proposito.
 process.env.COLETA_SEGUNDOS_MINIMOS ??= '0';
 process.env.COLETA_SEGUNDOS_POR_PERGUNTA ??= '0';
+
+process.env.EXPORTACAO_THROTTLE_LIMITE ??= '200';

@@ -1,23 +1,37 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { FormatoDeExportacao, servicoExportacao } from '../api/servico-exportacao';
 import {
+  Cobertura as CoberturaDeResultado,
   Filtros as FiltrosDeResultado,
   FormularioComResultado,
   Indicadores as IndicadoresDeResultado,
   MunicipioComResultado,
   PerguntaComResultado,
   PontoDaEvolucao,
+  RankingPorMunicipio,
+  servicoApuracao,
   servicoResultados,
 } from '../api/servico-resultados';
+import { Cobertura } from '../componentes/Cobertura';
+import { Exportacao } from '../componentes/Exportacao';
 import { Filtros } from '../componentes/Filtros';
 import { GraficoDeBarras, GraficoDeEvolucao, GraficoDePizza } from '../componentes/Graficos';
 import { Indicadores } from '../componentes/Indicadores';
+import { TabelaDeMunicipios } from '../componentes/TabelaDeMunicipios';
 import { SessaoEncerrada, UsuarioLogado } from '../auth/sessao';
+
+export interface ConfiguracaoDeImpressao {
+  formularioId: string;
+  filtros: FiltrosDeResultado;
+}
 
 interface Props {
   usuario: UsuarioLogado;
   aoSair: () => void;
   aoPerderSessao: () => void;
+  /** Presente só quando a página está sendo renderizada para virar PDF. */
+  impressao?: ConfiguracaoDeImpressao;
 }
 
 const NOME_DO_PERFIL: Record<UsuarioLogado['perfil'], string> = {
@@ -32,15 +46,17 @@ const NOME_DO_PERFIL: Record<UsuarioLogado['perfil'], string> = {
  * quatro blocos em paralelo — são quatro consultas sobre view materializada, não
  * varredura de resposta.
  */
-export function Painel({ usuario, aoSair, aoPerderSessao }: Props) {
+export function Painel({ usuario, aoSair, aoPerderSessao, impressao }: Props) {
   const [formularios, setFormularios] = useState<FormularioComResultado[]>([]);
-  const [formularioId, setFormularioId] = useState<string>('');
-  const [filtros, setFiltros] = useState<FiltrosDeResultado>({});
+  const [formularioId, setFormularioId] = useState<string>(impressao?.formularioId ?? '');
+  const [filtros, setFiltros] = useState<FiltrosDeResultado>(impressao?.filtros ?? {});
 
   const [indicadores, setIndicadores] = useState<IndicadoresDeResultado | null>(null);
   const [perguntas, setPerguntas] = useState<PerguntaComResultado[]>([]);
   const [evolucao, setEvolucao] = useState<PontoDaEvolucao[]>([]);
   const [municipios, setMunicipios] = useState<MunicipioComResultado[]>([]);
+  const [ranking, setRanking] = useState<RankingPorMunicipio | null>(null);
+  const [cobertura, setCobertura] = useState<CoberturaDeResultado | null>(null);
 
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -99,8 +115,10 @@ export function Painel({ usuario, aoSair, aoPerderSessao }: Props) {
       servicoResultados.porPergunta(formularioId, filtros),
       servicoResultados.evolucao(formularioId, filtros),
       servicoResultados.municipios(formularioId),
+      servicoApuracao.ranking(formularioId, filtros),
+      servicoApuracao.cobertura(formularioId),
     ])
-      .then(([indicadoresNovos, resultado, serie, alcance]) => {
+      .then(([indicadoresNovos, resultado, serie, alcance, ranqueados, alcanceDaBahia]) => {
         if (!ativo) {
           return;
         }
@@ -108,6 +126,8 @@ export function Painel({ usuario, aoSair, aoPerderSessao }: Props) {
         setPerguntas(resultado.perguntas);
         setEvolucao(serie.pontos);
         setMunicipios(alcance.municipios);
+        setRanking(ranqueados);
+        setCobertura(alcanceDaBahia);
       })
       .catch((falha) => {
         if (ativo) {
@@ -136,22 +156,52 @@ export function Painel({ usuario, aoSair, aoPerderSessao }: Props) {
     return perguntas.find((pergunta) => pergunta.totalDeRespostas > 0) ?? perguntas[0];
   }, [perguntas, filtros.perguntaId]);
 
+  /**
+   * Sinal para o renderizador de PDF: só depois que os dados chegaram e os
+   * gráficos terminaram de desenhar. Sem essa marca o Puppeteer fotografaria a
+   * tela ainda vazia.
+   */
+  const [prontoParaImpressao, setProntoParaImpressao] = useState(false);
+
+  useEffect(() => {
+    if (!impressao || carregando || !indicadores) {
+      return;
+    }
+    const relogio = setTimeout(() => setProntoParaImpressao(true), 1_500);
+    return () => clearTimeout(relogio);
+  }, [impressao, carregando, indicadores]);
+
+  const exportar = useCallback(
+    async (formato: FormatoDeExportacao) => {
+      await servicoExportacao.baixar(formato, formularioId, filtros);
+    },
+    [formularioId, filtros],
+  );
+
+  /** No PDF o cabeçalho identifica a pesquisa e quem pediu a exportação. */
+  const tituloDaPesquisa = useMemo(() => {
+    const atual = formularios.find((item) => item.id === formularioId);
+    return `${atual?.titulo ?? 'Pesquisa'} · gerado por ${usuario.nome}`;
+  }, [formularios, formularioId, usuario.nome]);
+
   const temFiltro = Boolean(
     filtros.perguntaId || filtros.municipioCodigoIbge || filtros.de || filtros.ate,
   );
 
   return (
-    <div className="pagina">
+    <div className="pagina" data-impressao={prontoParaImpressao ? 'pronta' : undefined}>
       <header className="cabecalho">
         <div>
           <h1>Painel de Resultados</h1>
           <p>
-            {usuario.nome} · {NOME_DO_PERFIL[usuario.perfil]}
+            {impressao ? tituloDaPesquisa : `${usuario.nome} · ${NOME_DO_PERFIL[usuario.perfil]}`}
           </p>
         </div>
-        <button className="botao secundario" onClick={aoSair}>
-          Sair
-        </button>
+        {impressao ? null : (
+          <button className="botao secundario" onClick={aoSair}>
+            Sair
+          </button>
+        )}
       </header>
 
       {formularios.length === 0 && !carregando ? (
@@ -166,19 +216,25 @@ export function Painel({ usuario, aoSair, aoPerderSessao }: Props) {
 
       {formularios.length > 0 ? (
         <>
-          <Filtros
-            formularios={formularios}
+          {impressao ? null : (
+            <>
+              <Filtros
+                formularios={formularios}
             formularioId={formularioId}
-            perguntas={perguntas}
-            municipios={municipios}
-            filtros={filtros}
-            aoTrocarFormulario={(novo) => {
-              setFormularioId(novo);
-              setFiltros({});
-            }}
-            aoTrocarFiltros={setFiltros}
-            aoLimpar={() => setFiltros({})}
-          />
+                perguntas={perguntas}
+                municipios={municipios}
+                filtros={filtros}
+                aoTrocarFormulario={(novo) => {
+                  setFormularioId(novo);
+                  setFiltros({});
+                }}
+                aoTrocarFiltros={setFiltros}
+                aoLimpar={() => setFiltros({})}
+              />
+
+              <Exportacao aoExportar={exportar} />
+            </>
+          )}
 
           {erro ? <p className="erro">{erro}</p> : null}
 
@@ -189,6 +245,10 @@ export function Painel({ usuario, aoSair, aoPerderSessao }: Props) {
             <GraficoDePizza pergunta={perguntaEmFoco} />
             <GraficoDeEvolucao pontos={evolucao} />
           </div>
+
+          {ranking ? <TabelaDeMunicipios ranking={ranking} impressao={Boolean(impressao)} /> : null}
+
+          {cobertura ? <Cobertura cobertura={cobertura} impressao={Boolean(impressao)} /> : null}
 
           {perguntas.length > 1 && !filtros.perguntaId ? (
             <div className="cartao">

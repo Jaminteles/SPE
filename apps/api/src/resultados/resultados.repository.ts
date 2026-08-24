@@ -17,6 +17,12 @@ export interface LinhaDeResultado {
   total: number;
 }
 
+export interface LinhaDeCruzamento {
+  alternativaAId: string;
+  alternativaBId: string;
+  total: number;
+}
+
 export interface PerguntaDoResultado {
   id: string;
   enunciado: string;
@@ -182,6 +188,106 @@ export class ResultadosRepository {
       nome: linha.nome,
       respostasValidas: Number(linha.respostas_validas),
     }));
+  }
+
+  /**
+   * Ranking por município **dentro do recorte**. Sai da mesma view da evolução,
+   * que é a fonte do indicador de respostas válidas — é o que garante que a
+   * soma da tabela feche com o total mostrado no painel e no arquivo exportado.
+   */
+  async rankingPorMunicipio(
+    recorte: Recorte,
+  ): Promise<{ codigoIbge: number; nome: string; respostasValidas: number }[]> {
+    const linhas = await this.prisma.$queryRaw<
+      { codigo_ibge: number; nome: string; total: bigint }[]
+    >(Prisma.sql`
+      SELECT e."municipio_codigo_ibge" AS codigo_ibge, m."nome", SUM(e."respostas_validas") AS total
+        FROM "mv_evolucao_coleta" e
+        JOIN "municipio" m ON m."codigo_ibge" = e."municipio_codigo_ibge"
+       WHERE ${this.condicoesDaSerie(recorte)}
+       GROUP BY e."municipio_codigo_ibge", m."nome"
+      HAVING SUM(e."respostas_validas") > 0
+       ORDER BY total DESC, m."nome" ASC
+    `);
+
+    return linhas.map((linha) => ({
+      codigoIbge: linha.codigo_ibge,
+      nome: linha.nome,
+      respostasValidas: Number(linha.total),
+    }));
+  }
+
+  /**
+   * Cobertura da Bahia: os 417 municípios, com zero para quem não foi
+   * alcançado. Sai da view de alcance com LEFT JOIN — nenhum município some da
+   * lista por não ter resposta, que é justamente o que a tela precisa mostrar.
+   */
+  async cobertura(
+    formularioId: string,
+  ): Promise<{ codigoIbge: number; nome: string; respostasValidas: number }[]> {
+    const linhas = await this.prisma.$queryRaw<
+      { codigo_ibge: number; nome: string; respostas_validas: bigint }[]
+    >(Prisma.sql`
+      SELECT m."codigo_ibge", m."nome", COALESCE(a."respostas_validas", 0) AS respostas_validas
+        FROM "municipio" m
+        LEFT JOIN "mv_alcance_municipio" a
+               ON a."municipio_codigo_ibge" = m."codigo_ibge"
+              AND a."formulario_id" = ${formularioId}::uuid
+       WHERE m."uf" = 'BA'
+       ORDER BY respostas_validas DESC, m."nome" ASC
+    `);
+
+    return linhas.map((linha) => ({
+      codigoIbge: linha.codigo_ibge,
+      nome: linha.nome,
+      respostasValidas: Number(linha.respostas_validas),
+    }));
+  }
+
+  /**
+   * Cruzamento de duas perguntas, somado sobre `mv_cruzamento_pergunta`.
+   *
+   * A view guarda o par uma única vez, na ordem das perguntas do formulário.
+   * Aqui as duas orientações são aceitas e o resultado sai sempre orientado
+   * como o chamador pediu: linha = pergunta A, coluna = pergunta B.
+   */
+  async cruzamento(
+    formularioId: string,
+    perguntaAId: string,
+    perguntaBId: string,
+    municipioCodigoIbge?: number,
+  ): Promise<LinhaDeCruzamento[]> {
+    const filtroDeMunicipio = municipioCodigoIbge
+      ? Prisma.sql`AND c."municipio_codigo_ibge" = ${municipioCodigoIbge}`
+      : Prisma.empty;
+
+    const linhas = await this.prisma.$queryRaw<
+      {
+        pergunta_a_id: string;
+        alternativa_a_id: string;
+        alternativa_b_id: string;
+        total: bigint;
+      }[]
+    >(Prisma.sql`
+      SELECT c."pergunta_a_id", c."alternativa_a_id", c."alternativa_b_id", SUM(c."total") AS total
+        FROM "mv_cruzamento_pergunta" c
+       WHERE c."formulario_id" = ${formularioId}::uuid
+         AND (
+              (c."pergunta_a_id" = ${perguntaAId}::uuid AND c."pergunta_b_id" = ${perguntaBId}::uuid)
+           OR (c."pergunta_a_id" = ${perguntaBId}::uuid AND c."pergunta_b_id" = ${perguntaAId}::uuid)
+         )
+         ${filtroDeMunicipio}
+       GROUP BY c."pergunta_a_id", c."alternativa_a_id", c."alternativa_b_id"
+    `);
+
+    return linhas.map((linha) => {
+      const naOrdemPedida = linha.pergunta_a_id === perguntaAId;
+      return {
+        alternativaAId: naOrdemPedida ? linha.alternativa_a_id : linha.alternativa_b_id,
+        alternativaBId: naOrdemPedida ? linha.alternativa_b_id : linha.alternativa_a_id,
+        total: Number(linha.total),
+      };
+    });
   }
 
   /** Estrutura do formulário: enunciados e alternativas, para rotular o gráfico. */

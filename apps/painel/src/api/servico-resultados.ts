@@ -101,3 +101,81 @@ export const servicoResultados = {
     return sessao.chamarAutenticado(`/resultados/${formularioId}/municipios`);
   },
 };
+
+// ---------------------------------------------------------------------------
+// Ranking, cobertura e cruzamento
+// ---------------------------------------------------------------------------
+
+export interface MunicipioRanqueado {
+  posicao: number;
+  codigoIbge: number;
+  nome: string;
+  respostasValidas: number;
+  percentual: number;
+}
+
+export interface RankingPorMunicipio {
+  total: number;
+  municipios: MunicipioRanqueado[];
+}
+
+export interface Cobertura {
+  municipiosDaBahia: number;
+  alcancados: number;
+  percentualDeCobertura: number;
+  municipios: MunicipioComResultado[];
+}
+
+export interface CelulaDoCruzamento {
+  alternativaId: string;
+  texto: string;
+  total: number;
+  percentual: number;
+}
+
+export interface LinhaDoCruzamento {
+  alternativaId: string;
+  texto: string;
+  total: number;
+  celulas: CelulaDoCruzamento[];
+}
+
+export interface Cruzamento {
+  perguntaLinhas: { perguntaId: string; enunciado: string };
+  perguntaColunas: { perguntaId: string; enunciado: string };
+  total: number;
+  colunas: { alternativaId: string; texto: string }[];
+  linhas: LinhaDoCruzamento[];
+}
+
+export const servicoApuracao = {
+  ranking(formularioId: string, filtros: Filtros): Promise<RankingPorMunicipio> {
+    return sessao.chamarAutenticado(
+      `/resultados/${formularioId}/ranking-municipios${consulta(filtros)}`,
+    );
+  },
+
+  cobertura(formularioId: string): Promise<Cobertura> {
+    return sessao.chamarAutenticado(`/resultados/${formularioId}/cobertura`);
+  },
+
+  cruzamento(
+    formularioId: string,
+    perguntaAId: string,
+    perguntaBId: string,
+    municipioCodigoIbge?: number,
+  ): Promise<Cruzamento> {
+    const parametros = new URLSearchParams({ perguntaAId, perguntaBId });
+    if (municipioCodigoIbge) {
+      parametros.set('municipioCodigoIbge', String(municipioCodigoIbge));
+    }
+    return sessao.chamarAutenticado(
+      `/resultados/${formularioId}/cruzamento?${parametros.toString()}`,
+    );
+  },
+};
+
+/** Query da exportação — os mesmos filtros da tela, para o arquivo bater com ela. */
+export function consultaDeExportacao(filtros: Filtros): string {
+  return consulta(filtros);
+}
