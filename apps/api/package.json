@@ -23,7 +23,8 @@
     "seed": "ts-node prisma/seed.ts",
     "municipios:sync": "ts-node prisma/scripts/baixar-municipios-ibge.ts",
     "criar-admin": "ts-node prisma/scripts/criar-administrador.ts",
-    "teste-de-carga": "ts-node prisma/scripts/teste-de-carga.ts"
+    "teste-de-carga": "ts-node prisma/scripts/teste-de-carga.ts",
+    "popular-carga": "ts-node prisma/scripts/popular-base-de-carga.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

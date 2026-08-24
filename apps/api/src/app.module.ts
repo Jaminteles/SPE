@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { AgregacaoModule } from './agregacao/agregacao.module';
+import { AplicativoModule } from './aplicativo/aplicativo.module';
 import { AuditoriaModule } from './auditoria/auditoria.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -11,6 +12,7 @@ import { PerfisGuard } from './auth/guards/perfis.guard';
 import { ColetaModule } from './coleta/coleta.module';
 import { validarAmbiente } from './config/env.config';
 import { ExportacaoModule } from './exportacao/exportacao.module';
+import { ExpurgoModule } from './expurgo/expurgo.module';
 import { FormulariosModule } from './formularios/formularios.module';
 import { HealthModule } from './health/health.module';
 import { MunicipiosModule } from './municipios/municipios.module';
@@ -46,8 +48,10 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     ResultadosModule,
     AgregacaoModule,
     ExportacaoModule,
+    ExpurgoModule,
     HealthModule,
     MunicipiosModule,
+    AplicativoModule,
   ],
   providers: [
     // A ordem importa: limite de requisições, depois identidade, depois permissão.

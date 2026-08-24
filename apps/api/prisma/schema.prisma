@@ -107,6 +107,8 @@ model Formulario {
   tokenPublico   String?          @unique @map("token_publico") @db.VarChar(32)
   publicadoEm    DateTime?        @map("publicado_em") @db.Timestamptz(6)
   encerradoEm    DateTime?        @map("encerrado_em") @db.Timestamptz(6)
+  /// Quando os dados técnicos de duplicidade desta pesquisa foram expurgados.
+  expurgoTecnicoEm DateTime?      @map("expurgo_tecnico_em") @db.Timestamptz(6)
   criadoPorId    String?          @map("criado_por_id") @db.Uuid
   criadoEm       DateTime         @default(now()) @map("criado_em") @db.Timestamptz(6)
   atualizadoEm   DateTime         @updatedAt @map("atualizado_em") @db.Timestamptz(6)
@@ -251,7 +253,8 @@ model Resposta {
   origem              RespostaOrigem
 
   /// Hash irreversível do identificador do dispositivo. Nunca em claro, nunca em log.
-  dispositivoHash String @map("dispositivo_hash") @db.Char(64)
+  /// Fica nulo depois do expurgo técnico, no encerramento da coleta.
+  dispositivoHash String? @map("dispositivo_hash") @db.Char(64)
 
   /// Momento do aceite do termo de consentimento. Sem aceite não se grava resposta.
   consentimentoEm DateTime @map("consentimento_em") @db.Timestamptz(6)
@@ -378,6 +381,8 @@ enum AuditoriaAcao {
   RESPOSTA_REVALIDADA
   AGREGACAO_ATUALIZADA
   EXPORTACAO_GERADA
+  EXPURGO_TECNICO
+  EXPURGO_RESPOSTAS
 
   @@map("auditoria_acao")
 }

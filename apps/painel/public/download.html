@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Instalar o aplicativo de coleta</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fundo: #f5f7f9;
+        --superficie: #ffffff;
+        --texto: #16202a;
+        --suave: #5b6b7b;
+        --borda: #d7dee6;
+        --acao: #16202a;
+        --acao-texto: #ffffff;
+        --aviso: #a3231f;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fundo: #0e141a;
+          --superficie: #151d26;
+          --texto: #e8eef4;
+          --suave: #9fb0be;
+          --borda: #263340;
+          --acao: #e8eef4;
+          --acao-texto: #16202a;
+          --aviso: #ff8c86;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px 16px 48px;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        background: var(--fundo);
+        color: var(--texto);
+        line-height: 1.55;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 26px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 0 0 12px;
+      }
+      p.sub {
+        color: var(--suave);
+        margin: 0 0 24px;
+      }
+      section {
+        background: var(--superficie);
+        border: 1px solid var(--borda);
+        border-radius: 10px;
+        padding: 18px;
+        margin-bottom: 16px;
+      }
+      a.botao {
+        display: inline-block;
+        background: var(--acao);
+        color: var(--acao-texto);
+        text-decoration: none;
+        font-weight: 600;
+        padding: 12px 18px;
+        border-radius: 8px;
+      }
+      code,
+      .hash {
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        font-size: 13px;
+        overflow-wrap: anywhere;
+      }
+      .hash {
+        display: block;
+        background: var(--fundo);
+        border: 1px solid var(--borda);
+        border-radius: 6px;
+        padding: 10px;
+        margin-top: 6px;
+      }
+      dl {
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        gap: 6px 16px;
+        margin: 0;
+      }
+      dt {
+        color: var(--suave);
+      }
+      dd {
+        margin: 0;
+        font-weight: 600;
+      }
+      ol {
+        padding-left: 20px;
+        margin: 0;
+      }
+      ol li {
+        margin-bottom: 10px;
+      }
+      .alerta {
+        color: var(--aviso);
+        font-weight: 600;
+      }
+      .rodape {
+        color: var(--suave);
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Aplicativo de coleta</h1>
+      <p class="sub">
+        Pesquisa eleitoral — instalação direta por APK, sem loja de aplicativos.
+      </p>
+
+      <section>
+        <h2>1. Baixar</h2>
+        <dl>
+          <dt>Versão</dt>
+          <dd id="versao">carregando…</dd>
+          <dt>Versão mínima aceita</dt>
+          <dd id="minima">—</dd>
+        </dl>
+        <p id="notas" class="rodape"></p>
+        <p><a id="link" class="botao" href="#">Baixar o APK</a></p>
+      </section>
+
+      <section>
+        <h2>2. Conferir o arquivo antes de instalar</h2>
+        <p>
+          O APK vem de fora da loja: conferir o código abaixo é o que separa o arquivo do projeto
+          de um arquivo trocado no caminho. Se o resultado no seu aparelho for diferente,
+          <span class="alerta">não instale</span> e avise a coordenação.
+        </p>
+        <p class="rodape">SHA-256 publicado:</p>
+        <code class="hash" id="sha">—</code>
+        <p class="rodape">
+          No computador (Windows): <code>certutil -hashfile spe-coleta.apk SHA256</code><br />
+          No computador (Linux/macOS): <code>sha256sum spe-coleta.apk</code>
+        </p>
+      </section>
+
+      <section>
+        <h2>3. Instalar no Android</h2>
+        <ol>
+          <li>Abra o arquivo baixado (notificação de download ou app <strong>Arquivos</strong>).</li>
+          <li>
+            O Android vai avisar que a instalação de fontes desconhecidas está bloqueada. Toque em
+            <strong>Configurações</strong> e autorize o navegador (ou o app Arquivos) a instalar
+            aplicativos. Essa permissão pode ser desligada depois.
+          </li>
+          <li>Volte e toque em <strong>Instalar</strong>.</li>
+          <li>
+            Se aparecer o aviso do Play Protect, escolha <strong>Instalar assim mesmo</strong> — o
+            aplicativo não passa pela loja e por isso não é reconhecido por ela.
+          </li>
+          <li>Abra o aplicativo e faça login com as credenciais que a coordenação enviou.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>4. Atualizações</h2>
+        <p>
+          O aplicativo confere a versão sempre que abre. Quando sair uma versão nova, ele avisa e
+          traz o link desta página. Se a versão instalada ficar abaixo da mínima aceita, ele
+          bloqueia a coleta até a atualização — um aplicativo desatualizado pode gravar resposta
+          fora do contrato atual, e resposta perdida não se recupera.
+        </p>
+        <p class="rodape">
+          Instalar a versão nova por cima mantém as respostas ainda não enviadas que estão no
+          aparelho.
+        </p>
+      </section>
+
+      <p class="rodape">
+        Este aplicativo coleta respostas <strong>anônimas</strong>: não pede nome, CPF, telefone
+        nem e-mail de quem responde.
+      </p>
+    </main>
+
+    <script>
+      // A página é servida pelo mesmo host da API (o proxy encaminha /api).
+      const API = window.location.origin + '/api/v1';
+
+      fetch(API + '/aplicativo/versao', { headers: { Accept: 'application/json' } })
+        .then((resposta) => {
+          if (!resposta.ok) {
+            throw new Error('indisponivel');
+          }
+          return resposta.json();
+        })
+        .then((dados) => {
+          document.getElementById('versao').textContent = dados.versaoAtual;
+          document.getElementById('minima').textContent = dados.versaoMinima;
+          document.getElementById('sha').textContent = dados.sha256 || 'ainda não publicado';
+          document.getElementById('notas').textContent = dados.notas || '';
+
+          const link = document.getElementById('link');
+          if (dados.urlArquivo) {
+            link.href = dados.urlArquivo;
+          } else {
+            link.removeAttribute('href');
+            link.textContent = 'Download ainda não publicado';
+          }
+        })
+        .catch(() => {
+          document.getElementById('versao').textContent = 'indisponível no momento';
+        });
+    </script>
+  </body>
+</html>

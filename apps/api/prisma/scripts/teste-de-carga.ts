@@ -13,6 +13,13 @@
  *   CONCORRENCIA=20 TOTAL=200 \
  *   npm run teste-de-carga
  *
+ * Para o porte projetado (pico de 300 envios por minuto, sustentado), use RPM:
+ *
+ *   TOKEN_PESQUISA=<token> RPM=300 TOTAL=1500 CONCORRENCIA=30 npm run teste-de-carga
+ *
+ * Com RPM o disparo é controlado por relógio: o teste mede se a API aguenta o
+ * ritmo do pico, não quantos pedidos cabem de uma vez.
+ *
  * Nenhum dado pessoal é gerado: o identificador de dispositivo é aleatório e
  * descartável, como o de um aparelho real.
  */
@@ -45,6 +52,10 @@ const TOKEN = process.env.TOKEN_PESQUISA ?? '';
 const CONCORRENCIA = Number(process.env.CONCORRENCIA ?? 10);
 const TOTAL = Number(process.env.TOTAL ?? 100);
 const CODIGO_IBGE = Number(process.env.MUNICIPIO_IBGE ?? 2927408);
+/** Ritmo alvo em envios por minuto. Zero (padrão) dispara sem freio. */
+const RPM = Number(process.env.RPM ?? 0);
+/** Teto aceitável do p95 de envio, em ms, para o teste dar veredito. */
+const META_P95_MS = Number(process.env.META_P95_MS ?? 1500);
 
 function percentil(valores: number[], p: number): number {
   if (valores.length === 0) return 0;
@@ -140,13 +151,31 @@ async function main() {
 
   console.log(`Carga: ${TOTAL} respostas, ${CONCORRENCIA} simultâneas, contra ${API_URL}`);
 
+  if (RPM > 0) {
+    console.log(`Ritmo alvo: ${RPM} envios/min (${(RPM / 60).toFixed(1)}/s)`);
+  }
+
   const medidas: Medida[] = [];
   const inicio = performance.now();
   let proxima = 0;
 
+  const intervaloMs = RPM > 0 ? 60_000 / RPM : 0;
+  const espera = (ms: number) => new Promise((resolver) => setTimeout(resolver, ms));
+
   const trabalhador = async () => {
     while (proxima < TOTAL) {
+      const indice = proxima;
       proxima += 1;
+
+      // Com ritmo alvo, cada envio tem hora marcada: atraso acumulado vira
+      // fila de espera, que é exatamente o que se quer medir no pico.
+      if (intervaloMs > 0) {
+        const atrasoDoSlot = inicio + indice * intervaloMs - performance.now();
+        if (atrasoDoSlot > 0) {
+          await espera(atrasoDoSlot);
+        }
+      }
+
       medidas.push(await umaResposta());
     }
   };
@@ -179,6 +208,24 @@ async function main() {
   console.log(
     `Envio máximo:       ${enviosOk.length > 0 ? Math.round(Math.max(...enviosOk)) : 0} ms`,
   );
+
+  // Veredito explícito: teste de carga sem critério é gráfico bonito.
+  const p95 = percentil(enviosOk, 95);
+  const vazaoPorMinuto = (medidas.length / duracaoSegundos) * 60;
+  const semFalha = sucessos.length === medidas.length;
+  const noRitmo = RPM === 0 || vazaoPorMinuto >= RPM * 0.95;
+  const aprovado = semFalha && noRitmo && p95 <= META_P95_MS;
+
+  console.log('');
+  console.log(`Vazão sustentada:   ${vazaoPorMinuto.toFixed(0)} envios/min`);
+  console.log(`Meta de p95:        ${META_P95_MS} ms`);
+  console.log(`Veredito:           ${aprovado ? 'APROVADO' : 'REPROVADO'}`);
+  if (!aprovado) {
+    if (!semFalha) console.log('  - houve envio recusado ou com erro');
+    if (!noRitmo) console.log('  - a vazão ficou abaixo do ritmo alvo');
+    if (p95 > META_P95_MS) console.log('  - o p95 de envio passou da meta');
+    process.exitCode = 1;
+  }
 }
 
 main().catch((erro) => {

@@ -55,6 +55,17 @@ export function TelaConsentimento({ titulo, descricao, aoAceitar, aoRecusar, env
         </Text>
 
         <Text style={estilos.paragrafo}>
+          <Text style={estilos.destaque}>Localização.</Text> Se o aplicativo pedir sua
+          localização, ela é <Text style={estilos.destaque}>opcional</Text> e serve apenas para a
+          coordenação conferir a coleta. Você pode recusar e responder normalmente.
+        </Text>
+
+        <Text style={estilos.paragrafo}>
+          <Text style={estilos.destaque}>Seus direitos.</Text> Como a resposta é anônima, não há
+          como localizá-la depois para alterar ou excluir — nem por você, nem por nós. Dúvidas
+          sobre a pesquisa podem ser levadas a quem aplicou este questionário.
+        </Text>
+        <Text style={estilos.paragrafo}>
           <Text style={estilos.destaque}>É voluntário.</Text> Você pode parar a qualquer momento e
           pode recusar. Responder ou não responder não muda nada para você.
         </Text>

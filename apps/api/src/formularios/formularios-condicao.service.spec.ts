@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { AuditoriaAcao, FormularioStatus, PerguntaTipo } from '@prisma/client';
 
 import { AuditoriaService } from '../auditoria/auditoria.service';
+import { ExpurgoService } from '../expurgo/expurgo.service';
 import { FormulariosRepository } from './formularios.repository';
 import { FormulariosService } from './formularios.service';
 import { ProvedorQrCode } from './qrcode.provider';
@@ -39,6 +40,7 @@ describe('FormulariosService (condição, acesso e duplicação)', () => {
   };
   const auditoria = { registrar: jest.fn() };
   const qrCode = { gerarSvg: jest.fn() };
+  const expurgo = { aoEncerrarColeta: jest.fn() };
   const config = { get: jest.fn() };
 
   const rascunho = { id: 'form-1', status: FormularioStatus.RASCUNHO, titulo: 'Pesquisa' };
@@ -104,6 +106,7 @@ describe('FormulariosService (condição, acesso e duplicação)', () => {
         { provide: AuditoriaService, useValue: auditoria },
         { provide: ProvedorQrCode, useValue: qrCode },
         { provide: ConfigService, useValue: config },
+        { provide: ExpurgoService, useValue: expurgo },
       ],
     }).compile();
     servico = modulo.get(FormulariosService);

@@ -20,6 +20,16 @@ export interface AppEnv {
   EXPORTACAO_PDF_TIMEOUT_MS: number;
   PUPPETEER_EXECUTABLE_PATH: string | undefined;
   EXPORTACAO_PDF_TLS_INVALIDO: boolean;
+  EXPURGO_ANOS: number;
+  EXPURGO_INTERVALO_HORAS: number;
+  EXPURGO_LOTE: number;
+  EXPURGO_LOTES_POR_CICLO: number;
+  APP_VERSAO_ATUAL: string;
+  APP_VERSAO_MINIMA: string;
+  APP_URL_DOWNLOAD: string;
+  APP_URL_APK: string | undefined;
+  APP_APK_SHA256: string | undefined;
+  APP_NOTAS_DA_VERSAO: string | undefined;
   DEVICE_HASH_PEPPER: string;
   REDIS_URL: string | undefined;
   TURNSTILE_SECRET: string | undefined;
@@ -124,6 +134,28 @@ export function validarAmbiente(bruto: Record<string, unknown>): AppEnv {
     // Caminho do navegador quando a imagem já traz um Chromium instalado.
     PUPPETEER_EXECUTABLE_PATH: (bruto.PUPPETEER_EXECUTABLE_PATH as string | undefined) || undefined,
     EXPORTACAO_PDF_TLS_INVALIDO: booleano(bruto.EXPORTACAO_PDF_TLS_INVALIDO, false),
+    // Retenção das respostas: 4 anos depois do encerramento da coleta. É prazo
+    // legal, não ajuste de operação — mexer aqui é decisão de conformidade.
+    EXPURGO_ANOS: inteiro(bruto.EXPURGO_ANOS as string | undefined, 4, 'EXPURGO_ANOS'),
+    EXPURGO_INTERVALO_HORAS: inteiro(
+      bruto.EXPURGO_INTERVALO_HORAS as string | undefined,
+      24,
+      'EXPURGO_INTERVALO_HORAS',
+    ),
+    EXPURGO_LOTE: inteiro(bruto.EXPURGO_LOTE as string | undefined, 1_000, 'EXPURGO_LOTE'),
+    EXPURGO_LOTES_POR_CICLO: inteiro(
+      bruto.EXPURGO_LOTES_POR_CICLO as string | undefined,
+      20,
+      'EXPURGO_LOTES_POR_CICLO',
+    ),
+    // Distribuição do APK: sem loja, a versão publicada é declarada aqui e o
+    // aplicativo confere na abertura.
+    APP_VERSAO_ATUAL: String(bruto.APP_VERSAO_ATUAL ?? '0.1.0'),
+    APP_VERSAO_MINIMA: String(bruto.APP_VERSAO_MINIMA ?? '0.1.0'),
+    APP_URL_DOWNLOAD: String(bruto.APP_URL_DOWNLOAD ?? 'http://localhost:5173/download.html'),
+    APP_URL_APK: (bruto.APP_URL_APK as string | undefined) || undefined,
+    APP_APK_SHA256: (bruto.APP_APK_SHA256 as string | undefined) || undefined,
+    APP_NOTAS_DA_VERSAO: (bruto.APP_NOTAS_DA_VERSAO as string | undefined) || undefined,
     DEVICE_HASH_PEPPER: pepper,
     REDIS_URL: (bruto.REDIS_URL as string | undefined) || undefined,
     // Sem segredo o desafio fica desligado; em produção, ligue o obrigatório.

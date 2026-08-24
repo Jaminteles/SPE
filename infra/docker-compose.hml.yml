@@ -79,6 +79,29 @@ services:
       - api
     restart: unless-stopped
 
+  # Backup periodico da base. Sem cron no host: o proprio container agenda.
+  # Restauracao nunca e automatica — ver infra/scripts/restaurar-postgres.sh.
+  backup:
+    image: postgres:16-alpine
+    container_name: spe-hml-backup
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_INTERVALO_HORAS: ${BACKUP_INTERVALO_HORAS:-6}
+      BACKUP_RETENCAO_DIAS: ${BACKUP_RETENCAO_DIAS:-14}
+      TZ: America/Bahia
+    volumes:
+      - ./scripts/backup-postgres.sh:/usr/local/bin/backup-postgres.sh:ro
+      - ./scripts/restaurar-postgres.sh:/usr/local/bin/restaurar-postgres.sh:ro
+      - dados-backup:/backups
+    entrypoint: ["/bin/sh", "/usr/local/bin/backup-postgres.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
   # Único serviço publicado: termina o TLS e repassa X-Forwarded-Proto.
   # API e painel não ficam expostos diretamente.
   proxy:
@@ -100,3 +123,4 @@ volumes:
   dados-postgres-hml:
   dados-redis-hml:
   dados-certbot:
+  dados-backup:

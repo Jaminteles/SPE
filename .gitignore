@@ -23,3 +23,8 @@ Thumbs.db
 !.vscode/extensions.json
 
 apps/api/prisma/.tmp/
+
+# Assinatura do APK: a chave e a senha do keystore nunca entram no repositorio.
+apps/app/credentials.json
+*.jks
+*.keystore

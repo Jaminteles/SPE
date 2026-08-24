@@ -9,6 +9,7 @@ import { AuditoriaAcao, FormularioStatus, PerguntaTipo } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 
 import { AuditoriaService } from '../auditoria/auditoria.service';
+import { ExpurgoService } from '../expurgo/expurgo.service';
 import {
   AtualizarAlternativaDto,
   AtualizarFormularioDto,
@@ -43,6 +44,7 @@ export class FormulariosService {
     private readonly auditoria: AuditoriaService,
     private readonly qrCode: ProvedorQrCode,
     private readonly config: ConfigService,
+    private readonly expurgo: ExpurgoService,
   ) {}
 
   // -------------------------------------------------------------------------
@@ -181,6 +183,11 @@ export class FormulariosService {
       usuarioId: autorId,
       detalhe: { titulo: formulario.titulo },
     });
+
+    // Encerrada a coleta, os dados técnicos de duplicidade perderam finalidade:
+    // o expurgo técnico entra na fila aqui e carimba o prazo dos 4 anos das
+    // respostas. Falhar em agendar não desfaz o encerramento.
+    await this.expurgo.aoEncerrarColeta(id);
 
     return this.exigirResumo(id);
   }

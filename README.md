@@ -95,7 +95,17 @@ exportação em CSV, XLSX e PDF: [docs/apuracao-e-exportacao.md](./docs/apuracao
 Duplicidade, marcação automática de suspeita, invalidação manual e a agregação
 pré-calculada: [docs/integridade.md](./docs/integridade.md).
 
+## Operação e homologação
+
+Backup da base, distribuição e assinatura do APK, verificação de versão e teste de carga:
+[docs/operacao.md](./docs/operacao.md). Roteiro de homologação com aparelhos reais e com o
+Administrador: [docs/homologacao.md](./docs/homologacao.md).
+
+Manuais: [Administrador](./docs/manual-administrador.md) · [Analista](./docs/manual-analista.md).
+
 ## Privacidade
+
+Revisão de conformidade, prazos e expurgo: [docs/lgpd.md](./docs/lgpd.md).
 
 A resposta é anônima por construção: nome, CPF, telefone e e-mail do respondente não são
 coletados, persistidos nem registrados em log. O controle de duplicidade usa apenas hash

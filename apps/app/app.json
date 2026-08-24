@@ -41,7 +41,13 @@
         {
           "locationAlwaysAndWhenInUsePermission": "A localização é opcional e serve apenas para conferência da pesquisa. Você pode recusar e responder normalmente."
         }
-      ]
-    ]
+      ],
+      "expo-updates"
+    ],
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_ERROR_RECOVERY",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }

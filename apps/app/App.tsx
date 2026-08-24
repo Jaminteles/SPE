@@ -2,7 +2,9 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
+import { Diagnostico, servicoAtualizacao } from './src/atualizacao/servico-atualizacao';
 import { UsuarioLogado, servicoAuth } from './src/auth/servico-auth';
+import { TelaAtualizacao } from './src/telas/TelaAtualizacao';
 import { TelaFormulario } from './src/telas/admin/TelaFormulario';
 import { TelaFormularios } from './src/telas/admin/TelaFormularios';
 import { TelaPergunta } from './src/telas/admin/TelaPergunta';
@@ -29,6 +31,31 @@ export default function App() {
   const [rota, setRota] = useState<Rota>({ tela: 'inicio' });
   /** A coleta não exige conta: vive fora da área autenticada. */
   const [respondendo, setRespondendo] = useState(false);
+  /** Verificação de versão na abertura — o substituto da atualização da loja. */
+  const [versao, setVersao] = useState<Diagnostico | null>(null);
+  const [avisoDispensado, setAvisoDispensado] = useState(false);
+
+  useEffect(() => {
+    let ativo = true;
+
+    // Não bloqueia a abertura: se o servidor não responder, o app segue.
+    servicoAtualizacao
+      .verificar()
+      .then((diagnostico) => {
+        if (ativo) {
+          setVersao(diagnostico);
+        }
+      })
+      .catch(() => undefined);
+
+    // Atualização de conteúdo (OTA) baixa em segundo plano e vale na próxima
+    // abertura: reiniciar o app no meio de uma coleta perderia resposta.
+    void servicoAtualizacao.buscarAtualizacaoDeConteudo();
+
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   useEffect(() => {
     let ativo = true;
@@ -75,6 +102,22 @@ export default function App() {
     return (
       <View style={estilos.centro}>
         <ActivityIndicator color={cores.acao} />
+        <StatusBar style="auto" />
+      </View>
+    );
+  }
+
+  // Versão abaixo do mínimo trava aqui, antes de qualquer tela — inclusive a de
+  // coleta, que é a que grava dado.
+  if (versao && (versao.estado === 'bloqueado' || (versao.estado === 'aviso' && !avisoDispensado))) {
+    return (
+      <View style={estilos.raiz}>
+        <TelaAtualizacao
+          diagnostico={versao}
+          aoContinuar={
+            versao.estado === 'aviso' ? () => setAvisoDispensado(true) : undefined
+          }
+        />
         <StatusBar style="auto" />
       </View>
     );
