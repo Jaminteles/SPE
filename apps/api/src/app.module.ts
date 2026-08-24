@@ -15,6 +15,7 @@ import { HealthModule } from './health/health.module';
 import { MunicipiosModule } from './municipios/municipios.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { RespostasModule } from './respostas/respostas.module';
+import { ResultadosModule } from './resultados/resultados.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 
 @Module({
@@ -41,6 +42,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     FormulariosModule,
     ColetaModule,
     RespostasModule,
+    ResultadosModule,
     AgregacaoModule,
     HealthModule,
     MunicipiosModule,

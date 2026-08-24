@@ -3,7 +3,8 @@
 Sistema de Pesquisa Eleitoral — PostgreSQL 16 + Prisma.
 Corresponde ao item 5.2 do documento de escopo (task **S0-03**), com as ampliações das
 Sprints 1 (sessão), 2 (tipo ESCALA na pergunta), 3 (lógica condicional e token público) e
-5 (sessão de coleta, marcações de suspeita e views materializadas).
+5 (sessão de coleta, marcações de suspeita e views materializadas) e 6 (agregação detalhada do
+painel).
 
 Fonte de verdade: [`apps/api/prisma/schema.prisma`](../apps/api/prisma/schema.prisma).
 Migrations em `apps/api/prisma/migrations/`.
@@ -149,6 +150,9 @@ migrations.
 | `mv_resumo_formulario` | view materializada | totais por formulário, base dos percentuais |
 | `mv_resultado_pergunta` | view materializada | total e percentual por alternativa, sobre válidas |
 | `mv_resultado_municipio` | view materializada | apuração por código IBGE |
+| `mv_resultado_detalhado` | view materializada | fato do painel: pergunta × alternativa × município × dia |
+| `mv_evolucao_coleta` | view materializada | série diária por formulário e município |
+| `mv_alcance_municipio` | view materializada | respostas válidas por município |
 
 ## Índices de apuração
 

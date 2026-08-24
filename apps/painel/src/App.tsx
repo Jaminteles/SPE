@@ -1,33 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { obter } from './api/cliente';
+import { UsuarioLogado, sessao } from './auth/sessao';
+import { Login } from './paginas/Login';
+import { Painel } from './paginas/Painel';
 
-type Situacao = 'verificando' | 'disponivel' | 'indisponivel';
-
-interface RespostaHealth {
-  status: string;
-  banco: string;
-}
-
-/**
- * Casca do painel (Sprint 0).
- * As telas de resultado entram nas sprints seguintes, consumindo agregados.
- */
 export function App() {
-  const [situacao, setSituacao] = useState<Situacao>('verificando');
+  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
+  const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
     let ativo = true;
 
-    obter<RespostaHealth>('/health')
-      .then((resposta) => {
+    sessao
+      .retomar()
+      .then((retomado) => {
         if (ativo) {
-          setSituacao(resposta.status === 'ok' ? 'disponivel' : 'indisponivel');
+          setUsuario(retomado);
         }
       })
-      .catch(() => {
+      .finally(() => {
         if (ativo) {
-          setSituacao('indisponivel');
+          setCarregando(false);
         }
       });
 
@@ -36,23 +29,25 @@ export function App() {
     };
   }, []);
 
-  const texto: Record<Situacao, string> = {
-    verificando: 'Verificando...',
-    disponivel: 'API e banco de dados disponíveis',
-    indisponivel: 'API indisponível',
-  };
+  const sair = useCallback(async () => {
+    await sessao.sair();
+    setUsuario(null);
+  }, []);
 
-  return (
-    <div className="pagina">
-      <header className="cabecalho">
-        <h1>Painel de Resultados</h1>
-        <p>Sistema de Pesquisa Eleitoral — Bahia</p>
-      </header>
+  /** A sessão morreu no servidor: volta para o login sem tentar mais nada. */
+  const perderSessao = useCallback(() => setUsuario(null), []);
 
-      <section className="cartao">
-        <h2>Ambiente</h2>
-        <p>{texto[situacao]}</p>
-      </section>
-    </div>
-  );
+  if (carregando) {
+    return (
+      <div className="pagina">
+        <p className="aviso">Carregando…</p>
+      </div>
+    );
+  }
+
+  if (!usuario) {
+    return <Login aoEntrar={setUsuario} />;
+  }
+
+  return <Painel usuario={usuario} aoSair={sair} aoPerderSessao={perderSessao} />;
 }

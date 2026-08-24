@@ -23,6 +23,9 @@ async function bootstrap() {
     helmet({
       hsts: { maxAge: 31_536_000, includeSubDomains: true, preload: false },
       contentSecurityPolicy: false,
+      // A API é consumida por painel e aplicativo, que em desenvolvimento vivem
+      // em outra origem. Quem autoriza a leitura é o CORS, com allowlist.
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
   app.use(new ExigirHttpsMiddleware(config.get<boolean>('TLS_OBRIGATORIO', false)).uso);

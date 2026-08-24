@@ -4,7 +4,14 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 /** Views materializadas de resultado. A lista é fechada, escrita à mão. */
-const VIEWS = ['mv_resumo_formulario', 'mv_resultado_pergunta', 'mv_resultado_municipio'] as const;
+const VIEWS = [
+  'mv_resumo_formulario',
+  'mv_resultado_pergunta',
+  'mv_resultado_municipio',
+  'mv_resultado_detalhado',
+  'mv_evolucao_coleta',
+  'mv_alcance_municipio',
+] as const;
 
 export type ViewDeResultado = (typeof VIEWS)[number];
 

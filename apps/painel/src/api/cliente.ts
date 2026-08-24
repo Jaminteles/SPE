@@ -10,21 +10,56 @@ export class ErroApi extends Error {
   }
 }
 
+export class ErroDeRede extends Error {
+  constructor() {
+    super('Não foi possível falar com o servidor. Verifique a conexão.');
+    this.name = 'ErroDeRede';
+  }
+}
+
+interface Opcoes {
+  metodo?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  corpo?: unknown;
+  token?: string;
+}
+
+interface CorpoErro {
+  mensagem?: string | string[];
+}
+
 /**
  * Cliente HTTP do painel.
- * Nunca coloca dado sensivel em query string; o token vai no cabecalho.
+ *
+ * O token vai sempre no cabeçalho — nunca em query string, que vaza em log de
+ * proxy e histórico de navegador.
  */
-export async function obter<T>(caminho: string, token?: string): Promise<T> {
-  const resposta = await fetch(`${BASE_URL}${caminho}`, {
-    headers: {
-      Accept: 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
+export async function chamar<T>(caminho: string, opcoes: Opcoes = {}): Promise<T> {
+  let resposta: Response;
 
-  if (!resposta.ok) {
-    throw new ErroApi(resposta.status, `Falha na consulta a ${caminho}.`);
+  try {
+    resposta = await fetch(`${BASE_URL}${caminho}`, {
+      method: opcoes.metodo ?? 'GET',
+      headers: {
+        Accept: 'application/json',
+        ...(opcoes.corpo ? { 'Content-Type': 'application/json' } : {}),
+        ...(opcoes.token ? { Authorization: `Bearer ${opcoes.token}` } : {}),
+      },
+      body: opcoes.corpo ? JSON.stringify(opcoes.corpo) : undefined,
+    });
+  } catch {
+    throw new ErroDeRede();
   }
 
-  return (await resposta.json()) as T;
+  if (resposta.status === 204) {
+    return undefined as T;
+  }
+
+  const corpo = (await resposta.json().catch(() => ({}))) as CorpoErro;
+
+  if (!resposta.ok) {
+    const mensagem = Array.isArray(corpo.mensagem) ? corpo.mensagem[0] : corpo.mensagem;
+    throw new ErroApi(resposta.status, mensagem ?? 'Não foi possível concluir a operação.');
+  }
+
+  return corpo as T;
 }

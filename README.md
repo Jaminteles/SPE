@@ -34,7 +34,8 @@ ADMIN_NOME="Nome Sobrenome" ADMIN_EMAIL=admin@exemplo.br ADMIN_SENHA="..." npm -
 Serviços: API em `http://localhost:3000/api/v1`, Swagger em `http://localhost:3000/api/docs`,
 PostgreSQL em `5432`, Redis em `6379`.
 
-Painel: `npm --prefix apps/painel run dev` → `http://localhost:5173`.
+Painel: `npm --prefix apps/painel run dev` → `http://localhost:5173` (entre com um usuário
+Administrador ou Analista).
 Aplicativo: `npm --prefix apps/app start`.
 
 ## Homologação
@@ -79,6 +80,10 @@ depois da publicação: [docs/formularios.md](./docs/formularios.md).
 
 Fluxo do respondente (consentimento, município por código IBGE, preenchimento parcial em
 SQLite, reenvio automático): [docs/coleta.md](./docs/coleta.md).
+
+## Resultados
+
+Painel web, filtros e as agregações que ele consome: [docs/resultados.md](./docs/resultados.md).
 
 ## Integridade
 

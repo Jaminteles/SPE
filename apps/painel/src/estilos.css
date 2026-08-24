@@ -1,18 +1,42 @@
 :root {
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light dark;
-  --cor-fundo: #ffffff;
+
+  --cor-fundo: #f5f7f9;
+  --cor-superficie: #ffffff;
   --cor-texto: #16202a;
-  --cor-borda: #d7dee6;
   --cor-suave: #5b6b7b;
+  --cor-borda: #d7dee6;
+  --cor-acao: #16202a;
+  --cor-acao-texto: #ffffff;
+  --cor-erro: #a3231f;
+
+  /* Paleta dos gráficos: contraste suficiente entre séries vizinhas. */
+  --serie-1: #2f6f9f;
+  --serie-2: #d98032;
+  --serie-3: #4f9d69;
+  --serie-4: #8a5fa8;
+  --serie-5: #b5544f;
+  --serie-6: #6b7b8b;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --cor-fundo: #10171e;
+    --cor-fundo: #0e141a;
+    --cor-superficie: #151d26;
     --cor-texto: #e8eef4;
-    --cor-borda: #2a3742;
     --cor-suave: #9fb0be;
+    --cor-borda: #263340;
+    --cor-acao: #e8eef4;
+    --cor-acao-texto: #0e141a;
+    --cor-erro: #e0736e;
+
+    --serie-1: #6aa9d8;
+    --serie-2: #e6a262;
+    --serie-3: #79c191;
+    --serie-4: #ad8ac6;
+    --serie-5: #d68b86;
+    --serie-6: #93a3b1;
   }
 }
 
@@ -26,16 +50,44 @@ body {
   color: var(--cor-texto);
 }
 
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+input,
+select {
+  font: inherit;
+  color: var(--cor-texto);
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+/* ---------------------------------------------------------------- estrutura */
+
 .pagina {
-  max-width: 960px;
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 32px 24px;
+  padding: 24px;
 }
 
 .cabecalho {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
   border-bottom: 1px solid var(--cor-borda);
   padding-bottom: 16px;
   margin-bottom: 24px;
+  flex-wrap: wrap;
 }
 
 .cabecalho h1 {
@@ -46,19 +98,174 @@ body {
 .cabecalho p {
   margin: 0;
   color: var(--cor-suave);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .cartao {
+  background: var(--cor-superficie);
   border: 1px solid var(--cor-borda);
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 16px;
 }
 
 .cartao h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cor-suave);
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------- indicadores */
+
+.indicadores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.indicador .valor {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.indicador .rotulo {
+  font-size: 12px;
+  color: var(--cor-suave);
+  margin-top: 6px;
+}
+
+.indicador .detalhe {
+  font-size: 12px;
+  color: var(--cor-suave);
+  margin-top: 2px;
+}
+
+/* ------------------------------------------------------------------ filtros */
+
+.filtros {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 20px;
+}
+
+.campo label {
+  display: block;
+  font-size: 12px;
+  color: var(--cor-suave);
+  margin-bottom: 4px;
+}
+
+/* ------------------------------------------------------------------ gráficos */
+
+.graficos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.grafico-largo {
+  grid-column: 1 / -1;
+}
+
+.grafico-vazio {
+  color: var(--cor-suave);
   font-size: 14px;
+  padding: 40px 0;
+  text-align: center;
+}
+
+/* -------------------------------------------------------------------- botões */
+
+.botao {
+  border: 1px solid var(--cor-acao);
+  background: var(--cor-acao);
+  color: var(--cor-acao-texto);
+  border-radius: 6px;
+  padding: 9px 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.botao.secundario {
+  background: transparent;
+  color: var(--cor-texto);
+  border-color: var(--cor-borda);
+  font-weight: 400;
+}
+
+/* --------------------------------------------------------------------- login */
+
+.login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.login .cartao {
+  width: 100%;
+  max-width: 380px;
+}
+
+.login h1 {
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+
+.login .subtitulo {
+  color: var(--cor-suave);
+  font-size: 13px;
+  margin: 0 0 20px;
+}
+
+.login .campo {
+  margin-bottom: 14px;
+}
+
+.erro {
+  color: var(--cor-erro);
+  font-size: 13px;
+  margin: 12px 0;
+}
+
+.aviso {
+  color: var(--cor-suave);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 16px;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.tabela th,
+.tabela td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.tabela th {
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--cor-suave);
-  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.tabela td.numero,
+.tabela th.numero {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
