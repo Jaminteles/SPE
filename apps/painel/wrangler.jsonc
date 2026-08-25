@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "spe",
+  "compatibility_date": "2026-08-25",
+
+  // Worker só de assets: não há `main`, nenhum código roda no servidor. O
+  // painel é estático — quem tem lógica é a API, noutro host.
+  //
+  // A Cloudflare não oferece mais criar projeto Pages novo; este arquivo é o
+  // que o fluxo do Workers usa no lugar dos campos que o Pages tinha na tela.
+  "assets": {
+    "directory": "./dist",
+
+    // O painel não usa rotas de caminho: decide tudo por querystring
+    // (`?impressao=1`), e `/download.html` é arquivo de verdade. Servir o
+    // index.html em cima de qualquer caminho desconhecido só esconderia erro
+    // de digitação atrás de uma tela de login.
+    "not_found_handling": "none"
+  }
+}

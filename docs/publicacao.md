@@ -12,7 +12,7 @@ máquina é só o desenvolvimento e a homologação em rede local.
 |---|---|---|
 | Banco PostgreSQL | Neon | Postgres gerenciado com plano gratuito |
 | API NestJS | Render ou Fly.io | contêiner com HTTPS válido de graça |
-| Painel + página de download | Cloudflare Pages | estático, não hiberna, domínio grátis |
+| Painel + página de download | Cloudflare Workers | estático, não hiberna, domínio grátis |
 | Compilação do APK | GitHub Actions | sem cota mensal, ao contrário do EAS Build |
 | Arquivo do APK | GitHub Releases | link estável e público |
 
@@ -68,7 +68,7 @@ Variáveis obrigatórias:
 | `NODE_ENV` | `production` |
 | `JWT_SECRET` | 32+ caracteres, aleatório |
 | `DEVICE_HASH_PEPPER` | 32+ caracteres, aleatório |
-| `CORS_ORIGINS` | a URL do painel no Cloudflare Pages |
+| `CORS_ORIGINS` | a URL do painel no Cloudflare |
 | `PAINEL_URL` | a mesma URL do painel |
 | `COLETA_BASE_URL` | a mesma URL do painel |
 | `TLS_OBRIGATORIO` | `true` |
@@ -96,18 +96,47 @@ ADMIN_NOME="Nome Sobrenome" ADMIN_EMAIL=admin@exemplo.br ADMIN_SENHA="..." \
 > incomodar, o caminho é uma instância paga pequena — não há truque grátis
 > honesto para isso.
 
-## 3. Painel e página de download (Cloudflare Pages)
+## 3. Painel e página de download (Cloudflare Workers)
 
-- diretório raiz: `apps/painel`
-- comando: `npm ci && npm run build`
-- saída: `dist`
-- variável de ambiente: `VITE_API_URL` = `https://<sua-api>/api/v1`
+A Cloudflare não oferece mais criar projeto **Pages** novo — o caminho é
+**Workers & Pages → Create → Import a repository**, que publica um Worker só de
+assets estáticos. O `apps/painel/wrangler.jsonc` é o que substitui os campos que
+a tela do Pages tinha; sem ele o `wrangler deploy` não sabe o que publicar.
+
+Na criação:
+
+| Campo | Valor |
+|---|---|
+| Project name | `spe` (precisa bater com o `name` do wrangler.jsonc) |
+| Build command | `npm ci && npm run build` |
+| Deploy command | `npx wrangler deploy` |
+
+Depois de criado, em **Settings → Build**:
+
+| Campo | Valor |
+|---|---|
+| Root directory | `apps/painel` |
+
+E em **Settings → Variables and Secrets** (variáveis de *build*, não de runtime —
+o Worker não executa código):
+
+| Chave | Valor |
+|---|---|
+| `VITE_API_URL` | `https://<sua-api>/api/v1` |
+| `NODE_VERSION` | `20` |
+
+O root directory é indispensável: na raiz do repositório o `npm run build`
+compila a API junto, e o `dist` do painel nem existe onde o wrangler procura.
+
+`NODE_VERSION` também não é firula: o `.nvmrc` está na raiz do repositório e o
+build roda em `apps/painel`, então ele não é encontrado.
 
 `VITE_API_URL` é lida **no build**, tanto pelo painel quanto pela
-`download.html`. Mudar a URL da API exige rodar o build de novo — não basta
-mexer na configuração do serviço.
+`download.html`. Mudar a URL da API exige um deploy novo — não basta editar a
+variável. Um painel publicado sem ela não falha na publicação: falha quando
+alguém tenta entrar.
 
-Anote a URL que o Pages te der: ela é o `CORS_ORIGINS`, o `PAINEL_URL` e o
+Anote a URL que a Cloudflare te der: ela é o `CORS_ORIGINS`, o `PAINEL_URL` e o
 `COLETA_BASE_URL` do passo 2. As duas pontas precisam concordar.
 
 ## 4. Aplicativo (GitHub Actions + Releases)

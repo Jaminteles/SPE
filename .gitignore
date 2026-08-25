@@ -2,6 +2,7 @@ node_modules/
 dist/
 build/
 coverage/
+.wrangler/
 .expo/
 .expo-shared/
 web-build/
