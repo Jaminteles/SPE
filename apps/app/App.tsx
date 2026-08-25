@@ -15,6 +15,7 @@ import { TelaLogin } from './src/telas/TelaLogin';
 import { TelaResultado } from './src/telas/resultados/TelaResultado';
 import { TelaResultados } from './src/telas/resultados/TelaResultados';
 import { cores } from './src/ui/cores';
+import { LimiteDeErro } from './src/ui/LimiteDeErro';
 
 /**
  * Navegação da área autenticada.
@@ -130,7 +131,9 @@ export default function App() {
   if (respondendo) {
     return (
       <View style={estilos.raiz}>
-        <FluxoDeColeta aoSair={() => setRespondendo(false)} />
+        <LimiteDeErro aoVoltar={() => setRespondendo(false)}>
+          <FluxoDeColeta aoSair={() => setRespondendo(false)} />
+        </LimiteDeErro>
         <StatusBar style="auto" />
       </View>
     );
@@ -147,72 +150,75 @@ export default function App() {
 
   return (
     <View style={estilos.raiz}>
-      {rota.tela === 'inicio' ? (
-        <TelaInicio
-          usuario={usuario}
-          aoSair={sair}
-          aoAbrirFormularios={() => setRota({ tela: 'formularios' })}
-          aoAbrirResultados={() => setRota({ tela: 'resultados' })}
-        />
-      ) : null}
+      {/* Falha de render em qualquer rota vira mensagem legivel, nao tela branca. */}
+      <LimiteDeErro aoVoltar={voltarParaInicio}>
+        {rota.tela === 'inicio' ? (
+          <TelaInicio
+            usuario={usuario}
+            aoSair={sair}
+            aoAbrirFormularios={() => setRota({ tela: 'formularios' })}
+            aoAbrirResultados={() => setRota({ tela: 'resultados' })}
+          />
+        ) : null}
 
-      {rota.tela === 'formularios' ? (
-        <TelaFormularios
-          aoAbrir={(formularioId) => setRota({ tela: 'formulario', formularioId })}
-          aoVoltar={voltarParaInicio}
-          aoPerderSessao={perderSessao}
-        />
-      ) : null}
+        {rota.tela === 'formularios' ? (
+          <TelaFormularios
+            aoAbrir={(formularioId) => setRota({ tela: 'formulario', formularioId })}
+            aoVoltar={voltarParaInicio}
+            aoPerderSessao={perderSessao}
+          />
+        ) : null}
 
-      {rota.tela === 'formulario' ? (
-        <TelaFormulario
-          formularioId={rota.formularioId}
-          aoAbrirPergunta={(perguntaId, editavel) =>
-            setRota({ tela: 'pergunta', formularioId: rota.formularioId, perguntaId, editavel })
-          }
-          aoPreVisualizar={() => setRota({ tela: 'previa', formularioId: rota.formularioId })}
-          aoAbrirFormulario={(formularioId) => setRota({ tela: 'formulario', formularioId })}
-          aoVoltar={voltarParaFormularios}
-          aoPerderSessao={perderSessao}
-        />
-      ) : null}
+        {rota.tela === 'formulario' ? (
+          <TelaFormulario
+            formularioId={rota.formularioId}
+            aoAbrirPergunta={(perguntaId, editavel) =>
+              setRota({ tela: 'pergunta', formularioId: rota.formularioId, perguntaId, editavel })
+            }
+            aoPreVisualizar={() => setRota({ tela: 'previa', formularioId: rota.formularioId })}
+            aoAbrirFormulario={(formularioId) => setRota({ tela: 'formulario', formularioId })}
+            aoVoltar={voltarParaFormularios}
+            aoPerderSessao={perderSessao}
+          />
+        ) : null}
 
-      {rota.tela === 'pergunta' ? (
-        <TelaPergunta
-          formularioId={rota.formularioId}
-          perguntaId={rota.perguntaId}
-          editavel={rota.editavel}
-          aoVoltar={() => setRota({ tela: 'formulario', formularioId: rota.formularioId })}
-          aoPerderSessao={perderSessao}
-        />
-      ) : null}
+        {rota.tela === 'pergunta' ? (
+          <TelaPergunta
+            formularioId={rota.formularioId}
+            perguntaId={rota.perguntaId}
+            editavel={rota.editavel}
+            aoVoltar={() => setRota({ tela: 'formulario', formularioId: rota.formularioId })}
+            aoPerderSessao={perderSessao}
+          />
+        ) : null}
 
-      {rota.tela === 'previa' ? (
-        <TelaPreVisualizacao
-          formularioId={rota.formularioId}
-          aoVoltar={() => setRota({ tela: 'formulario', formularioId: rota.formularioId })}
-          aoPerderSessao={perderSessao}
-        />
-      ) : null}
+        {rota.tela === 'previa' ? (
+          <TelaPreVisualizacao
+            formularioId={rota.formularioId}
+            aoVoltar={() => setRota({ tela: 'formulario', formularioId: rota.formularioId })}
+            aoPerderSessao={perderSessao}
+          />
+        ) : null}
 
-      {rota.tela === 'resultados' ? (
-        <TelaResultados
-          aoAbrir={(formularioId, tituloDaPesquisa) =>
-            setRota({ tela: 'resultado', formularioId, titulo: tituloDaPesquisa })
-          }
-          aoVoltar={voltarParaInicio}
-          aoPerderSessao={perderSessao}
-        />
-      ) : null}
+        {rota.tela === 'resultados' ? (
+          <TelaResultados
+            aoAbrir={(formularioId, tituloDaPesquisa) =>
+              setRota({ tela: 'resultado', formularioId, titulo: tituloDaPesquisa })
+            }
+            aoVoltar={voltarParaInicio}
+            aoPerderSessao={perderSessao}
+          />
+        ) : null}
 
-      {rota.tela === 'resultado' ? (
-        <TelaResultado
-          formularioId={rota.formularioId}
-          titulo={rota.titulo}
-          aoVoltar={() => setRota({ tela: 'resultados' })}
-          aoPerderSessao={perderSessao}
-        />
-      ) : null}
+        {rota.tela === 'resultado' ? (
+          <TelaResultado
+            formularioId={rota.formularioId}
+            titulo={rota.titulo}
+            aoVoltar={() => setRota({ tela: 'resultados' })}
+            aoPerderSessao={perderSessao}
+          />
+        ) : null}
+      </LimiteDeErro>
 
       <StatusBar style="auto" />
     </View>

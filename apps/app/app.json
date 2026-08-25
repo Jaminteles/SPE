@@ -2,7 +2,7 @@
   "expo": {
     "name": "Pesquisa Eleitoral",
     "slug": "spe-coleta",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "scheme": "spe",

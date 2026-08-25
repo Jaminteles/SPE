@@ -48,9 +48,38 @@ function paraFatias(pergunta: PerguntaComResultado): Fatia[] {
   }));
 }
 
-function formatarMomento(iso: string): string {
+const doisDigitos = (valor: number) => String(valor).padStart(2, '0');
+
+/**
+ * Carimbo da agregacao, formatado a mao.
+ *
+ * Nao usa `toLocaleString` com `dateStyle`/`timeStyle`: o Hermes, motor JS do
+ * Android, traz `Intl` incompleto e essas opcoes estouram em APK de release,
+ * embora funcionem no navegador — o que derrubava esta tela inteira. O formato
+ * fixo abaixo e o mesmo que o pt-BR produziria.
+ *
+ * Trata tambem a agregacao que ainda nao rodou: pesquisa recem-criada fica sem
+ * carimbo ate o primeiro ciclo, e data invalida nao pode virar texto sem
+ * sentido na tela.
+ */
+function carimboDaAgregacao(iso: string | null | undefined): string {
+  if (!iso) {
+    return 'Agregacao ainda nao calculada.';
+  }
+
   const data = new Date(iso);
-  return data.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  if (Number.isNaN(data.getTime())) {
+    return 'Agregacao ainda nao calculada.';
+  }
+
+  const dia = [
+    doisDigitos(data.getDate()),
+    doisDigitos(data.getMonth() + 1),
+    data.getFullYear(),
+  ].join('/');
+  const hora = [doisDigitos(data.getHours()), doisDigitos(data.getMinutes())].join(':');
+
+  return 'Agregacao de ' + dia + ' ' + hora + '.';
 }
 
 /**
@@ -140,7 +169,7 @@ export function TelaResultado({ formularioId, titulo, aoVoltar, aoPerderSessao }
             <Indicador rotulo="Invalidadas" valor={indicadores.respostasInvalidadas} />
           </View>
           <Text style={estilos.carimbo}>
-            Agregação de {formatarMomento(indicadores.atualizadoEm)}. Puxe para atualizar.
+            {carimboDaAgregacao(indicadores.atualizadoEm)} Puxe para atualizar.
           </Text>
         </Cartao>
 
