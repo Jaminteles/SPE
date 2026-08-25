@@ -12,6 +12,8 @@ import { TelaPreVisualizacao } from './src/telas/admin/TelaPreVisualizacao';
 import { FluxoDeColeta } from './src/telas/coleta/FluxoDeColeta';
 import { TelaInicio } from './src/telas/TelaInicio';
 import { TelaLogin } from './src/telas/TelaLogin';
+import { TelaResultado } from './src/telas/resultados/TelaResultado';
+import { TelaResultados } from './src/telas/resultados/TelaResultados';
 import { cores } from './src/ui/cores';
 
 /**
@@ -23,7 +25,9 @@ type Rota =
   | { tela: 'formularios' }
   | { tela: 'formulario'; formularioId: string }
   | { tela: 'pergunta'; formularioId: string; perguntaId: string; editavel: boolean }
-  | { tela: 'previa'; formularioId: string };
+  | { tela: 'previa'; formularioId: string }
+  | { tela: 'resultados' }
+  | { tela: 'resultado'; formularioId: string; titulo: string };
 
 export default function App() {
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
@@ -148,6 +152,7 @@ export default function App() {
           usuario={usuario}
           aoSair={sair}
           aoAbrirFormularios={() => setRota({ tela: 'formularios' })}
+          aoAbrirResultados={() => setRota({ tela: 'resultados' })}
         />
       ) : null}
 
@@ -186,6 +191,25 @@ export default function App() {
         <TelaPreVisualizacao
           formularioId={rota.formularioId}
           aoVoltar={() => setRota({ tela: 'formulario', formularioId: rota.formularioId })}
+          aoPerderSessao={perderSessao}
+        />
+      ) : null}
+
+      {rota.tela === 'resultados' ? (
+        <TelaResultados
+          aoAbrir={(formularioId, tituloDaPesquisa) =>
+            setRota({ tela: 'resultado', formularioId, titulo: tituloDaPesquisa })
+          }
+          aoVoltar={voltarParaInicio}
+          aoPerderSessao={perderSessao}
+        />
+      ) : null}
+
+      {rota.tela === 'resultado' ? (
+        <TelaResultado
+          formularioId={rota.formularioId}
+          titulo={rota.titulo}
+          aoVoltar={() => setRota({ tela: 'resultados' })}
           aoPerderSessao={perderSessao}
         />
       ) : null}

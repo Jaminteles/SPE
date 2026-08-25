@@ -85,6 +85,8 @@ export class AgregacaoService implements OnModuleInit, OnModuleDestroy {
   private async agendar(): Promise<void> {
     const minutos = this.config.get<number>('AGREGACAO_INTERVALO_MIN', 10);
 
+    await this.removerAgendamentosAntigos(minutos * 60_000);
+
     await this.fila?.add(
       TAREFA_ATUALIZAR,
       { origem: 'agendamento' },
@@ -99,6 +101,29 @@ export class AgregacaoService implements OnModuleInit, OnModuleDestroy {
     );
 
     this.logger.log(`Agregação agendada a cada ${minutos} min.`);
+  }
+
+  /**
+   * Mudar AGREGACAO_INTERVALO_MIN não substitui a série repetida: o BullMQ
+   * deriva a chave do intervalo, então o agendamento anterior sobrevive e passa
+   * a rodar junto com o novo. Sem esta limpeza, cada mudança de intervalo deixa
+   * mais uma série órfã disparando para sempre.
+   */
+  private async removerAgendamentosAntigos(intervaloAtual: number): Promise<void> {
+    if (!this.fila) {
+      return;
+    }
+
+    const agendamentos = await this.fila.getRepeatableJobs();
+
+    for (const agendamento of agendamentos) {
+      if (agendamento.every === String(intervaloAtual)) {
+        continue;
+      }
+
+      await this.fila.removeRepeatableByKey(agendamento.key);
+      this.logger.warn(`Agendamento antigo removido (a cada ${agendamento.every} ms).`);
+    }
   }
 
   /** Atualização sob demanda: usada pela administração e pelos testes. */

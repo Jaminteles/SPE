@@ -9,11 +9,16 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "development"
     },
     "homologacao": {
       "distribution": "internal",
       "channel": "homologacao",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://192.168.1.14/api/v1",
+        "SPE_ACEITAR_CA_LOCAL": "1"
+      },
       "android": {
         "buildType": "apk"
       },
@@ -22,11 +27,14 @@
     "producao": {
       "distribution": "internal",
       "channel": "producao",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://ALTERAR-ANTES-DO-DISPARO/api/v1"
+      },
       "android": {
         "buildType": "apk"
       },
       "credentialsSource": "local",
-      "autoIncrement": "versionCode"
+      "autoIncrement": true
     }
   }
 }

@@ -2,6 +2,34 @@
 
 Sprint 8. O que precisa estar de pé antes do disparo real.
 
+## Tarefas pontuais em homologação
+
+Seed dos municípios, criação do Administrador inicial e população da base de
+carga são scripts `ts-node`. A imagem da API roda `npm prune --omit=dev`, então
+o `ts-node` **não existe** no container que serve as requisições — rodar esses
+comandos do host também não serve, porque o Postgres de homologação não publica
+porta: só o nginx é exposto.
+
+Para isso existe o serviço `tarefas`, atrás do profile de mesmo nome. Ele não
+sobe com `hml:up`; roda na rede do banco, executa e sai:
+
+```bash
+docker compose -f infra/docker-compose.hml.yml --profile tarefas run --rm tarefas npm run seed
+```
+
+```bash
+docker compose -f infra/docker-compose.hml.yml --profile tarefas run --rm \
+  -e ADMIN_NOME="Nome Sobrenome" -e ADMIN_EMAIL=admin@exemplo.br \
+  -e ADMIN_SENHA="..." tarefas npm run criar-admin
+```
+
+As migrations não precisam do estágio de tarefas — o CLI do Prisma sobrevive à
+poda e roda no próprio container da API:
+
+```bash
+docker compose -f infra/docker-compose.hml.yml exec api npx prisma migrate deploy
+```
+
 ## Backup da base
 
 Serviço `backup` no `infra/docker-compose.hml.yml`, rodando
@@ -71,6 +99,34 @@ npm --prefix apps/app run build:apk        # perfil producao
 npm --prefix apps/app run build:apk:hml    # perfil homologacao
 ```
 
+### Para onde o APK aponta
+
+Cada perfil do `eas.json` define `EXPO_PUBLIC_API_URL`. Isso não é conforto: o
+`apps/app/src/config/ambiente.ts` recusa build de distribuição apontado para
+HTTP, e a exceção estoura na carga do módulo — sem a variável, o APK instala e
+**fecha ao abrir**, sem mensagem útil no aparelho.
+
+O perfil `producao` está com um endereço propositalmente inválido
+(`ALTERAR-ANTES-DO-DISPARO`). Trocar por um domínio com certificado de AC faz
+parte do checklist de liberação.
+
+Para homologação em aparelho real na rede local, o endereço é o IP da máquina
+que roda o Docker, e o certificado precisa cobrir esse IP:
+
+```bash
+./infra/scripts/gerar-certificado-dev.sh 192.168.1.14
+```
+
+O script distingue IP de domínio: um IP entra como `IP:` no `subjectAltName`,
+porque emitido como `DNS:` o Android ignora a entrada e recusa a conexão mesmo
+com o certificado instalado. Depois de gerar, `npm run hml:up` para o nginx
+recarregar.
+
+No aparelho, o certificado autoassinado ainda precisa ser instalado (Ajustes →
+Segurança → Instalar certificado) ou o app vai falhar no TLS. Confira também se
+o firewall do Windows libera a porta 443 para a rede privada — sem isso o
+celular não alcança o host.
+
 Antes do primeiro build, o projeto precisa estar ligado à conta EAS:
 
 ```bash
@@ -124,8 +180,8 @@ Porte alvo: **100 mil respostas em base** e **pico de 300 envios por minuto**.
 ### 1. Base populada
 
 ```bash
-DATABASE_URL=... FORMULARIO_ID=<uuid> TOTAL=100000 \
-  npm --prefix apps/api run popular-carga
+docker compose -f infra/docker-compose.hml.yml --profile tarefas run --rm \
+  -e FORMULARIO_ID=<uuid> -e TOTAL=100000 tarefas npm run popular-carga
 ```
 
 Gera dado sintético e anônimo (hash de dispositivo aleatório, nenhum dado
@@ -136,9 +192,10 @@ do painel — a suíte E2E de resultados exige o painel inteiro em menos de 1,5 
 ### 2. Pico sustentado
 
 ```bash
-API_URL=https://<host>/api/v1 TOKEN_PESQUISA=<token público> \
-  RPM=300 TOTAL=1500 CONCORRENCIA=30 \
-  npm --prefix apps/api run teste-de-carga
+docker compose -f infra/docker-compose.hml.yml --profile tarefas run --rm \
+  -e API_URL=https://<host>/api/v1 -e TOKEN_PESQUISA=<token público> \
+  -e RPM=300 -e TOTAL=1500 -e CONCORRENCIA=30 \
+  tarefas npm run teste-de-carga
 ```
 
 Com `RPM`, cada envio tem hora marcada: o que se mede é se a API aguenta o

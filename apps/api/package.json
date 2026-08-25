@@ -24,7 +24,8 @@
     "municipios:sync": "ts-node prisma/scripts/baixar-municipios-ibge.ts",
     "criar-admin": "ts-node prisma/scripts/criar-administrador.ts",
     "teste-de-carga": "ts-node prisma/scripts/teste-de-carga.ts",
-    "popular-carga": "ts-node prisma/scripts/popular-base-de-carga.ts"
+    "popular-carga": "ts-node prisma/scripts/popular-base-de-carga.ts",
+    "criar-pesquisa": "ts-node prisma/scripts/criar-pesquisa-eleicoes-2026.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

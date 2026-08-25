@@ -8,6 +8,7 @@ interface Props {
   usuario: UsuarioLogado;
   aoSair: () => void;
   aoAbrirFormularios: () => void;
+  aoAbrirResultados: () => void;
 }
 
 const NOME_DO_PERFIL: Record<UsuarioLogado['perfil'], string> = {
@@ -19,7 +20,12 @@ const NOME_DO_PERFIL: Record<UsuarioLogado['perfil'], string> = {
  * Tela inicial da área autenticada.
  * O menu mostra só o que o perfil usa — mas quem recusa de fato é o guard da API.
  */
-export function TelaInicio({ usuario, aoSair, aoAbrirFormularios }: Props) {
+export function TelaInicio({
+  usuario,
+  aoSair,
+  aoAbrirFormularios,
+  aoAbrirResultados,
+}: Props) {
   const ehAdministrador = usuario.perfil === 'ADMINISTRADOR';
 
   return (
@@ -39,15 +45,19 @@ export function TelaInicio({ usuario, aoSair, aoAbrirFormularios }: Props) {
             <Botao titulo="Abrir pesquisas" aoTocar={aoAbrirFormularios} />
           </View>
         </Cartao>
-      ) : (
-        <Cartao>
-          <Text style={estilos.cartaoTitulo}>Resultados</Text>
-          <Text style={estilos.cartaoTexto}>
-            O perfil Analista consulta resultados agregados pelo painel web. A montagem de
-            formulário é exclusiva do Administrador.
-          </Text>
-        </Cartao>
-      )}
+      ) : null}
+
+      <Cartao>
+        <Text style={estilos.cartaoTitulo}>Resultados</Text>
+        <Text style={estilos.cartaoTexto}>
+          {ehAdministrador
+            ? 'Indicadores, distribuição por pergunta e evolução da coleta.'
+            : 'Indicadores, distribuição por pergunta e evolução da coleta. A montagem de formulário é exclusiva do Administrador.'}
+        </Text>
+        <View style={estilos.acao}>
+          <Botao titulo="Ver resultados" aoTocar={aoAbrirResultados} />
+        </View>
+      </Cartao>
 
       <Cartao>
         <Text style={estilos.cartaoTitulo}>Sessão ativa</Text>

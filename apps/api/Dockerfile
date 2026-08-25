@@ -19,6 +19,17 @@ RUN npx prisma generate
 EXPOSE 3000
 CMD ["npm", "run", "start:dev"]
 
+# ---- tarefas -------------------------------------------------------------
+# Estagio para tarefas pontuais de operacao: seed dos municipios, criacao do
+# Administrador inicial, populacao da base de carga. Todos sao scripts ts-node,
+# e o estagio de producao roda `npm prune --omit=dev` — o ts-node nao sobrevive
+# la. Este estagio guarda as devDeps e nao serve requisicao: sobe, roda o
+# comando e sai.
+FROM deps AS tarefas
+COPY . .
+RUN npx prisma generate
+CMD ["node", "--version"]
+
 # ---- build ---------------------------------------------------------------
 FROM deps AS build
 COPY . .

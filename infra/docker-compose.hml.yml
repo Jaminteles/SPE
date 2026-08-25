@@ -57,6 +57,32 @@ services:
       EXPORTACAO_PDF_TIMEOUT_MS: ${EXPORTACAO_PDF_TIMEOUT_MS:-45000}
       EXPORTACAO_THROTTLE_LIMITE: ${EXPORTACAO_THROTTLE_LIMITE:-6}
       EXPORTACAO_PDF_TLS_INVALIDO: ${EXPORTACAO_PDF_TLS_INVALIDO:-false}
+      # Verificacao anti-robo. Em producao TURNSTILE_OBRIGATORIO precisa ser
+      # true — ver o checklist de docs/homologacao.md.
+      TURNSTILE_SECRET: ${TURNSTILE_SECRET:-}
+      TURNSTILE_OBRIGATORIO: ${TURNSTILE_OBRIGATORIO:-false}
+      TURNSTILE_EXIGIR_NO_APLICATIVO: ${TURNSTILE_EXIGIR_NO_APLICATIVO:-false}
+      # Distribuicao do APK: o que a pagina de download e o aplicativo leem em
+      # GET /aplicativo/versao. Sem isso, publicar uma versao nova exigiria
+      # editar este arquivo a mao.
+      APP_VERSAO_ATUAL: ${APP_VERSAO_ATUAL:-0.1.0}
+      APP_VERSAO_MINIMA: ${APP_VERSAO_MINIMA:-0.1.0}
+      # Sem valor cai na pagina servida pelo proprio painel: env.config usa `??`
+      # nesta variavel, entao string vazia viraria URL vazia, nao o padrao.
+      APP_URL_DOWNLOAD: ${APP_URL_DOWNLOAD:-https://localhost/download.html}
+      APP_URL_APK: ${APP_URL_APK:-}
+      APP_APK_SHA256: ${APP_APK_SHA256:-}
+      APP_NOTAS_DA_VERSAO: ${APP_NOTAS_DA_VERSAO:-}
+      # Ciclo da agregacao que alimenta o painel. O refresh e CONCURRENTLY, entao
+      # ciclo curto nao trava leitura — mas cada ciclo recalcula as views
+      # inteiras. Volume baixo pede ciclo curto; teste de carga pede o contrario.
+      AGREGACAO_INTERVALO_MIN: ${AGREGACAO_INTERVALO_MIN:-10}
+      # Expurgo (LGPD). EXPURGO_ANOS muda por decisao de conformidade, nao por
+      # ajuste de operacao.
+      EXPURGO_ANOS: ${EXPURGO_ANOS:-4}
+      EXPURGO_INTERVALO_HORAS: ${EXPURGO_INTERVALO_HORAS:-24}
+      EXPURGO_LOTE: ${EXPURGO_LOTE:-1000}
+      EXPURGO_LOTES_POR_CICLO: ${EXPURGO_LOTES_POR_CICLO:-20}
     expose:
       - '3000'
     depends_on:
@@ -78,6 +104,23 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+
+  # Tarefas pontuais de operacao (seed, criar-admin, popular-carga). Fica atras
+  # do profile `tarefas`: nao sobe com `up`, so quando chamado de proposito com
+  # `docker compose --profile tarefas run --rm tarefas <comando>`. Roda na mesma
+  # rede do banco, o que evita publicar a porta 5432 so para rodar script.
+  tarefas:
+    build:
+      context: ../apps/api
+      target: tarefas
+    profiles: ['tarefas']
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?schema=public
+      NODE_ENV: production
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: 'no'
 
   # Backup periodico da base. Sem cron no host: o proprio container agenda.
   # Restauracao nunca e automatica — ver infra/scripts/restaurar-postgres.sh.
