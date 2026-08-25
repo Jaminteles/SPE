@@ -72,7 +72,7 @@ Variáveis obrigatórias:
 | `PAINEL_URL` | a mesma URL do painel |
 | `COLETA_BASE_URL` | a mesma URL do painel |
 | `TLS_OBRIGATORIO` | `true` |
-| `APP_URL_DOWNLOAD` | `<painel>/download.html` |
+| `APP_URL_DOWNLOAD` | `<painel>/download` (no Workers; `/download.html` atrás do nginx) |
 
 Gere os dois segredos com:
 
@@ -117,14 +117,9 @@ Depois de criado, em **Settings → Build**:
 |---|---|
 | Root directory | `apps/painel` |
 
-E em **Settings → Build**, nas variáveis de build (do tipo texto, não secret).
-Cuidado para não confundir com o **Variables and Secrets** do Worker: aquelas
-valem em tempo de execução, e este Worker não executa código nenhum — variável
-posta lá não faz nada:
-
-| Chave | Valor |
-|---|---|
-| `VITE_API_URL` | `https://<sua-api>/api/v1` |
+Não há variável para configurar no painel da Cloudflare. A URL da API vem do
+`apps/painel/.env.production`, versionado no repositório — trocar de API é um
+commit, que já dispara o build novo por si só.
 
 O root directory é indispensável: na raiz do repositório o `npm run build`
 compila a API junto, e o `dist` do painel nem existe onde o wrangler procura.
@@ -139,9 +134,19 @@ exige Node 22+. O caminho normal é o deploy automático a cada push; o script
 local é saída de emergência.
 
 `VITE_API_URL` é lida **no build**, tanto pelo painel quanto pela
-`download.html`. Mudar a URL da API exige um deploy novo — não basta editar a
-variável. Um painel publicado sem ela não falha na publicação: falha quando
-alguém tenta entrar.
+`download.html`. Um painel publicado sem ela não falha na publicação: sai
+apontando para `http://localhost:3000` e só quebra quando alguém tenta entrar —
+por isso ela mora num arquivo versionado, e não numa caixinha de painel.
+
+Variável de ambiente de verdade continua tendo precedência sobre o arquivo, para
+um build pontual apontando noutro lugar.
+
+### O endereço da página de download
+
+O Workers serve HTML sem a extensão: `/download.html` responde **307** para
+`/download`. O navegador segue e a página abre normalmente, mas o endereço
+canônico é `/download` — é ele que vai em `APP_URL_DOWNLOAD`. Atrás do nginx da
+homologação o caminho continua sendo `/download.html`.
 
 Anote a URL que a Cloudflare te der: ela é o `CORS_ORIGINS`, o `PAINEL_URL` e o
 `COLETA_BASE_URL` do passo 2. As duas pontas precisam concordar.
@@ -197,7 +202,7 @@ página de download passa a oferecer o arquivo.
 
 ## 5. Conferir a ponta a ponta
 
-1. abrir `<painel>/download.html` — precisa mostrar versão e hash, não
+1. abrir `<painel>/download` — precisa mostrar versão e hash, não
    "indisponível no momento". Se mostrar, a API não está respondendo ou o
    `CORS_ORIGINS` não inclui a origem do painel;
 2. instalar o APK num aparelho e abrir — se fechar sozinho na abertura, o
