@@ -117,19 +117,26 @@ Depois de criado, em **Settings → Build**:
 |---|---|
 | Root directory | `apps/painel` |
 
-E em **Settings → Variables and Secrets** (variáveis de *build*, não de runtime —
-o Worker não executa código):
+E em **Settings → Build**, nas variáveis de build (do tipo texto, não secret).
+Cuidado para não confundir com o **Variables and Secrets** do Worker: aquelas
+valem em tempo de execução, e este Worker não executa código nenhum — variável
+posta lá não faz nada:
 
 | Chave | Valor |
 |---|---|
 | `VITE_API_URL` | `https://<sua-api>/api/v1` |
-| `NODE_VERSION` | `20` |
 
 O root directory é indispensável: na raiz do repositório o `npm run build`
 compila a API junto, e o `dist` do painel nem existe onde o wrangler procura.
 
-`NODE_VERSION` também não é firula: o `.nvmrc` está na raiz do repositório e o
-build roda em `apps/painel`, então ele não é encontrado.
+A versão do Node vem do `apps/painel/.nvmrc`, que pede **22** — o wrangler 4
+recusa rodar em Node 20. Não adianta definir `NODE_VERSION` nas variáveis: o
+Workers Builds não lê essa variável (o Pages lia). Vale só para publicar o
+painel; a API continua em Node 20 (`node:20-alpine` no Dockerfile).
+
+Pelo mesmo motivo, rodar `npm --prefix apps/painel run deploy` na sua máquina
+exige Node 22+. O caminho normal é o deploy automático a cada push; o script
+local é saída de emergência.
 
 `VITE_API_URL` é lida **no build**, tanto pelo painel quanto pela
 `download.html`. Mudar a URL da API exige um deploy novo — não basta editar a
