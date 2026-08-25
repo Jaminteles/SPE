@@ -32,7 +32,7 @@ ADMIN_NOME="Nome Sobrenome" ADMIN_EMAIL=admin@exemplo.br ADMIN_SENHA="..." npm -
 ```
 
 Serviços: API em `http://localhost:3000/api/v1`, Swagger em `http://localhost:3000/api/docs`,
-PostgreSQL em `5432`, Redis em `6379`.
+PostgreSQL em `5432`.
 
 Painel: `npm --prefix apps/painel run dev` → `http://localhost:5173` (entre com um usuário
 Administrador ou Analista).

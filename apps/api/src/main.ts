@@ -65,7 +65,9 @@ async function bootstrap() {
   }
 
   const porta = config.get<number>('PORT', 3000);
-  await app.listen(porta);
+  // Host explícito: hospedagem em contêiner (Render, Fly) só enxerga a API se
+  // ela escutar em todas as interfaces, não em localhost.
+  await app.listen(porta, '0.0.0.0');
   new Logger('Bootstrap').log(
     `API disponível em http://localhost:${porta}/${prefixo}/v${VERSAO_PADRAO}`,
   );

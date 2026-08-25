@@ -31,6 +31,15 @@ export class PdfProvider {
     nomeBase: string,
     contexto: { token: string; filtros: Record<string, string> },
   ): Promise<ArquivoExportado> {
+    // Desligado por padrão: o PDF é a única funcionalidade que exige Chromium
+    // no contêiner, e é o que impede a API de caber em hospedagem gratuita.
+    // Ligue junto com uma instância que tenha memória para o navegador.
+    if (!this.config.get<boolean>('EXPORTACAO_PDF_HABILITADO', false)) {
+      throw new ServiceUnavailableException(
+        'Exportação em PDF desligada neste ambiente. Use CSV ou XLSX.',
+      );
+    }
+
     const url = this.montarUrl(pacote.formulario.id, contexto.filtros);
 
     let ultimaFalha: unknown = null;

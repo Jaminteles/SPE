@@ -17,6 +17,7 @@ export interface AppEnv {
   TLS_OBRIGATORIO: boolean;
   COLETA_BASE_URL: string;
   PAINEL_URL: string;
+  EXPORTACAO_PDF_HABILITADO: boolean;
   EXPORTACAO_PDF_TIMEOUT_MS: number;
   PUPPETEER_EXECUTABLE_PATH: string | undefined;
   EXPORTACAO_PDF_TLS_INVALIDO: boolean;
@@ -31,7 +32,6 @@ export interface AppEnv {
   APP_APK_SHA256: string | undefined;
   APP_NOTAS_DA_VERSAO: string | undefined;
   DEVICE_HASH_PEPPER: string;
-  REDIS_URL: string | undefined;
   TURNSTILE_SECRET: string | undefined;
   TURNSTILE_OBRIGATORIO: boolean;
   TURNSTILE_EXIGIR_NO_APLICATIVO: boolean;
@@ -126,6 +126,9 @@ export function validarAmbiente(bruto: Record<string, unknown>): AppEnv {
     COLETA_BASE_URL: String(bruto.COLETA_BASE_URL ?? 'http://localhost:5173').replace(/\/+$/, ''),
     // Origem do painel: é a única página que o renderizador de PDF abre.
     PAINEL_URL: String(bruto.PAINEL_URL ?? 'http://localhost:5173').replace(/\/+$/, ''),
+    // O PDF exige Chromium no contêiner. Desligado por padrão para a imagem
+    // caber em hospedagem pequena; CSV e XLSX não dependem de navegador.
+    EXPORTACAO_PDF_HABILITADO: booleano(bruto.EXPORTACAO_PDF_HABILITADO, false),
     EXPORTACAO_PDF_TIMEOUT_MS: inteiro(
       bruto.EXPORTACAO_PDF_TIMEOUT_MS as string | undefined,
       45_000,
@@ -157,7 +160,6 @@ export function validarAmbiente(bruto: Record<string, unknown>): AppEnv {
     APP_APK_SHA256: (bruto.APP_APK_SHA256 as string | undefined) || undefined,
     APP_NOTAS_DA_VERSAO: (bruto.APP_NOTAS_DA_VERSAO as string | undefined) || undefined,
     DEVICE_HASH_PEPPER: pepper,
-    REDIS_URL: (bruto.REDIS_URL as string | undefined) || undefined,
     // Sem segredo o desafio fica desligado; em produção, ligue o obrigatório.
     TURNSTILE_SECRET: (bruto.TURNSTILE_SECRET as string | undefined) || undefined,
     TURNSTILE_OBRIGATORIO: booleano(bruto.TURNSTILE_OBRIGATORIO, false),

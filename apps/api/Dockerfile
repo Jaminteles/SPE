@@ -1,10 +1,11 @@
 # ---- base ----------------------------------------------------------------
+# Sem Chromium: a exportacao em PDF vem desligada (EXPORTACAO_PDF_HABILITADO) e
+# e o unico recurso que exigia navegador na imagem. Sem ele, a imagem de
+# producao cabe em hospedagem pequena. Ver o estagio `production-pdf`.
 FROM node:20-alpine AS base
 WORKDIR /app
-# Chromium do sistema: a exportacao em PDF renderiza o painel no Puppeteer, e o
-# Chromium que ele baixa por padrao e compilado para glibc — nao roda em Alpine.
-RUN apk add --no-cache openssl chromium nss freetype harfbuzz ca-certificates ttf-freefont
-ENV PUPPETEER_SKIP_DOWNLOAD=true     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+RUN apk add --no-cache openssl ca-certificates
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 
 # ---- dependencias --------------------------------------------------------
 FROM base AS deps
@@ -13,7 +14,11 @@ COPY prisma ./prisma
 RUN npm ci
 
 # ---- desenvolvimento -----------------------------------------------------
+# So aqui entra o Chromium do sistema: o Chromium que o Puppeteer baixa por
+# padrao e compilado para glibc e nao roda em Alpine.
 FROM deps AS development
+RUN apk add --no-cache chromium nss freetype harfbuzz ttf-freefont
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 COPY . .
 RUN npx prisma generate
 EXPOSE 3000
@@ -44,4 +49,16 @@ COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/package.json ./package.json
 USER node
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+# `start:prod` aplica as migracoes pendentes antes de subir. E o que permite
+# apontar para um Postgres novo (Neon, por exemplo) sem passo manual.
+CMD ["npm", "run", "start:prod"]
+
+# ---- producao com PDF ----------------------------------------------------
+# Alvo opcional, para instancia com memoria sobrando: adiciona o Chromium e o
+# Puppeteer (que e devDependency e some no prune). Suba com
+# EXPORTACAO_PDF_HABILITADO=true, senao o PDF continua recusando.
+FROM production AS production-pdf
+USER root
+RUN apk add --no-cache chromium nss freetype harfbuzz ttf-freefont && npm install --no-save puppeteer
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+USER node

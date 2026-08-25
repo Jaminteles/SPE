@@ -1,38 +1,28 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuditoriaAcao } from '@prisma/client';
-import { Job, Queue, Worker } from 'bullmq';
-import IORedis, { Redis } from 'ioredis';
 
+import { TarefaPeriodica } from '../common/tarefas/tarefa-periodica';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { AgregacaoRepository } from './agregacao.repository';
-
-export const FILA_AGREGACAO = 'agregacao';
-export const TAREFA_ATUALIZAR = 'atualizar-resultados';
-
-interface DadosDaTarefa {
-  /** Só para rastrear no log quem pediu a atualização. */
-  origem: 'agendamento' | 'manual';
-}
 
 /**
  * Rotina de agregação pré-calculada.
  *
- * As views materializadas são atualizadas por job BullMQ, nunca no caminho da
- * requisição. Se o Redis não estiver configurado, o módulo sobe sem fila e a
- * atualização fica disponível apenas sob demanda — a API não deixa de subir por
- * causa da infraestrutura de fila.
+ * As views materializadas são atualizadas por uma tarefa periódica em processo,
+ * nunca no caminho da requisição. `AGREGACAO_INTERVALO_MIN` igual a zero desliga
+ * o ciclo e deixa a atualização só sob demanda.
  *
- * O worker é idempotente por natureza: `REFRESH MATERIALIZED VIEW` recalcula do
- * zero, então repetir a tarefa não corrompe nada.
+ * A tarefa é idempotente por natureza: `REFRESH MATERIALIZED VIEW` recalcula do
+ * zero, então repetir não corrompe nada.
  */
 @Injectable()
 export class AgregacaoService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(AgregacaoService.name);
 
-  private conexao: Redis | null = null;
-  private fila: Queue<DadosDaTarefa> | null = null;
-  private worker: Worker<DadosDaTarefa> | null = null;
+  private tarefa: TarefaPeriodica | null = null;
+  /** Autor do pedido sob demanda, para a trilha de auditoria do ciclo. */
+  private autorDoCicloAtual: string | undefined;
 
   private static readonly TENTATIVAS = 5;
   private static readonly BACKOFF_MS = 30_000;
@@ -43,87 +33,30 @@ export class AgregacaoService implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
   ) {}
 
-  async onModuleInit(): Promise<void> {
-    const url = this.config.get<string>('REDIS_URL');
-    if (!url || this.config.get<string>('NODE_ENV') === 'test') {
-      this.logger.warn('Fila de agregação desligada: sem REDIS_URL. Atualização só sob demanda.');
+  onModuleInit(): void {
+    const minutos = this.config.get<number>('AGREGACAO_INTERVALO_MIN', 10);
+
+    if (minutos <= 0 || this.config.get<string>('NODE_ENV') === 'test') {
+      this.logger.warn('Ciclo de agregação desligado. Atualização só sob demanda.');
       return;
     }
 
-    this.conexao = new IORedis(url, { maxRetriesPerRequest: null });
-    this.fila = new Queue<DadosDaTarefa>(FILA_AGREGACAO, { connection: this.conexao });
-
-    this.worker = new Worker<DadosDaTarefa>(
-      FILA_AGREGACAO,
-      async (tarefa) => this.executar(tarefa),
-      { connection: this.conexao, concurrency: 1 },
-    );
-
-    // Estado explícito: sucesso e falha viram log, e a falha final fica retida.
-    this.worker.on('failed', (tarefa, erro) => {
-      this.logger.error(
-        `Agregação falhou (tentativa ${tarefa?.attemptsMade ?? '?'}): ${erro.message}`,
-      );
-    });
-    this.worker.on('completed', (tarefa) => {
-      this.logger.log(`Agregação concluída (tarefa ${tarefa.id}).`);
-    });
-
-    await this.agendar();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.worker?.close();
-    await this.fila?.close();
-    this.conexao?.disconnect();
-  }
-
-  /**
-   * Agendamento periódico. `jobId` fixo mantém uma única série repetida mesmo
-   * que a API suba em mais de uma instância.
-   */
-  private async agendar(): Promise<void> {
-    const minutos = this.config.get<number>('AGREGACAO_INTERVALO_MIN', 10);
-
-    await this.removerAgendamentosAntigos(minutos * 60_000);
-
-    await this.fila?.add(
-      TAREFA_ATUALIZAR,
-      { origem: 'agendamento' },
+    this.tarefa = new TarefaPeriodica(
       {
-        repeat: { every: minutos * 60_000 },
-        jobId: 'agregacao-periodica',
-        attempts: AgregacaoService.TENTATIVAS,
-        backoff: { type: 'exponential', delay: AgregacaoService.BACKOFF_MS },
-        removeOnComplete: 50,
-        removeOnFail: 100,
+        nome: 'Agregacao',
+        intervaloMs: minutos * 60_000,
+        tentativas: AgregacaoService.TENTATIVAS,
+        backoffMs: AgregacaoService.BACKOFF_MS,
       },
+      () => this.executar(),
     );
 
+    this.tarefa.iniciar();
     this.logger.log(`Agregação agendada a cada ${minutos} min.`);
   }
 
-  /**
-   * Mudar AGREGACAO_INTERVALO_MIN não substitui a série repetida: o BullMQ
-   * deriva a chave do intervalo, então o agendamento anterior sobrevive e passa
-   * a rodar junto com o novo. Sem esta limpeza, cada mudança de intervalo deixa
-   * mais uma série órfã disparando para sempre.
-   */
-  private async removerAgendamentosAntigos(intervaloAtual: number): Promise<void> {
-    if (!this.fila) {
-      return;
-    }
-
-    const agendamentos = await this.fila.getRepeatableJobs();
-
-    for (const agendamento of agendamentos) {
-      if (agendamento.every === String(intervaloAtual)) {
-        continue;
-      }
-
-      await this.fila.removeRepeatableByKey(agendamento.key);
-      this.logger.warn(`Agendamento antigo removido (a cada ${agendamento.every} ms).`);
-    }
+  async onModuleDestroy(): Promise<void> {
+    await this.tarefa?.parar();
   }
 
   /** Atualização sob demanda: usada pela administração e pelos testes. */
@@ -140,28 +73,39 @@ export class AgregacaoService implements OnModuleInit, OnModuleDestroy {
     return { views, em: new Date() };
   }
 
-  /** Enfileira a atualização, se houver fila. Sem fila, executa direto. */
+  /**
+   * Pedido de atualização vindo da tela. Com o ciclo ligado, roda em segundo
+   * plano e a rota responde na hora — `REFRESH` de todas as views é lento
+   * demais para segurar a requisição. Sem ciclo, executa e só então responde.
+   */
   async solicitarAtualizacao(usuarioId?: string): Promise<'enfileirada' | 'executada'> {
-    if (!this.fila) {
+    if (!this.tarefa) {
       await this.atualizarAgora(usuarioId);
       return 'executada';
     }
 
-    await this.fila.add(
-      TAREFA_ATUALIZAR,
-      { origem: 'manual' },
-      {
-        attempts: AgregacaoService.TENTATIVAS,
-        backoff: { type: 'exponential', delay: AgregacaoService.BACKOFF_MS },
-        removeOnComplete: 50,
-        removeOnFail: 100,
-      },
-    );
+    // Se já havia um ciclo em curso, o pedido é absorvido por ele: o resultado
+    // é o mesmo recálculo completo, e a auditoria fica com o autor daquele.
+    if (this.tarefa.disparar()) {
+      this.autorDoCicloAtual = usuarioId;
+    }
+
     return 'enfileirada';
   }
 
-  private async executar(tarefa: Job<DadosDaTarefa>): Promise<void> {
-    this.logger.log(`Atualizando agregações (origem: ${tarefa.data.origem}).`);
+  private async executar(): Promise<void> {
+    const autor = this.autorDoCicloAtual;
+    this.autorDoCicloAtual = undefined;
+
+    this.logger.log(`Atualizando agregações (origem: ${autor ? 'manual' : 'agendamento'}).`);
+
+    // Só o pedido humano vira trilha. O ciclo automático recalcula a cada
+    // AGREGACAO_INTERVALO_MIN e encheria a auditoria de ruído sem informar nada.
+    if (autor) {
+      await this.atualizarAgora(autor);
+      return;
+    }
+
     await this.repositorio.atualizarTodas();
   }
 }

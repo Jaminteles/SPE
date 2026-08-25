@@ -163,7 +163,7 @@ migrations.
 - `municipio (uf, nome)` — busca do município na tela de coleta
 
 As **views materializadas** de agregação foram criadas na Sprint 5, escritas à mão dentro da
-migration e atualizadas por job BullMQ. Detalhes em [integridade.md](./integridade.md).
+migration e atualizadas por tarefa periódica. Detalhes em [integridade.md](./integridade.md).
 
 ## Carga inicial
 
@@ -182,5 +182,5 @@ O seed não cria usuário e não cria dado de resposta.
 | Resposta | 4 anos após o encerramento da pesquisa | `resposta.expurgar_apos` |
 | Dado técnico de duplicidade (`dispositivo_hash`) | encerramento da coleta | — |
 
-A rotina é automática (BullMQ), nunca manual. A implementação entra na sprint do módulo de
+A rotina é automática, nunca manual. A implementação entra na sprint do módulo de
 integridade; o schema já reserva a coluna e o índice parcial que ela usa.

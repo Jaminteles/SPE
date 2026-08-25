@@ -1,20 +1,10 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuditoriaAcao } from '@prisma/client';
-import { Job, Queue, Worker } from 'bullmq';
-import IORedis, { Redis } from 'ioredis';
 
+import { TarefaPeriodica } from '../common/tarefas/tarefa-periodica';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { ExpurgoRepository } from './expurgo.repository';
-
-export const FILA_EXPURGO = 'expurgo';
-export const TAREFA_EXPURGO = 'expurgar';
-
-interface DadosDaTarefa {
-  /** Só para rastrear no log quem pediu a execução. */
-  origem: 'agendamento' | 'encerramento' | 'manual';
-  formularioId?: string;
-}
 
 export interface ResumoDoExpurgo {
   pesquisasAnonimizadas: number;
@@ -34,20 +24,18 @@ export interface ResumoDoExpurgo {
  *   coleta, esses dados perderam finalidade;
  * - **respostas**: apagadas 4 anos depois do encerramento, em lotes.
  *
- * O worker é idempotente: o expurgo técnico trava em `expurgo_tecnico_em` e a
+ * A rotina é idempotente: o expurgo técnico trava em `expurgo_tecnico_em` e a
  * remoção por prazo é uma consulta sobre o que ainda existe. Repetir a tarefa
  * não apaga nada a mais nem quebra nada.
  *
- * Sem `REDIS_URL` o módulo sobe sem fila e a rotina fica disponível sob
- * demanda — a API não deixa de subir por causa da infraestrutura de fila.
+ * A rotina roda numa tarefa periódica em processo. `EXPURGO_INTERVALO_HORAS`
+ * igual a zero desliga o ciclo e deixa a execução só sob demanda.
  */
 @Injectable()
 export class ExpurgoService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ExpurgoService.name);
 
-  private conexao: Redis | null = null;
-  private fila: Queue<DadosDaTarefa> | null = null;
-  private worker: Worker<DadosDaTarefa> | null = null;
+  private tarefa: TarefaPeriodica | null = null;
 
   private static readonly TENTATIVAS = 5;
   private static readonly BACKOFF_MS = 60_000;
@@ -60,82 +48,48 @@ export class ExpurgoService implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
   ) {}
 
-  async onModuleInit(): Promise<void> {
-    const url = this.config.get<string>('REDIS_URL');
-    if (!url || this.config.get<string>('NODE_ENV') === 'test') {
-      this.logger.warn('Fila de expurgo desligada: sem REDIS_URL. Execução só sob demanda.');
+  onModuleInit(): void {
+    const horas = this.config.get<number>('EXPURGO_INTERVALO_HORAS', 24);
+
+    if (horas <= 0 || this.config.get<string>('NODE_ENV') === 'test') {
+      this.logger.warn('Ciclo de expurgo desligado. Execução só sob demanda.');
       return;
     }
 
-    this.conexao = new IORedis(url, { maxRetriesPerRequest: null });
-    this.fila = new Queue<DadosDaTarefa>(FILA_EXPURGO, { connection: this.conexao });
-
-    this.worker = new Worker<DadosDaTarefa>(FILA_EXPURGO, async (tarefa) => this.executar(tarefa), {
-      connection: this.conexao,
-      concurrency: 1,
-    });
-
-    // Estado explícito: sucesso e falha viram log; a falha final fica retida.
-    this.worker.on('failed', (tarefa, erro) => {
-      this.logger.error(
-        `Expurgo falhou (tentativa ${tarefa?.attemptsMade ?? '?'}): ${erro.message}`,
-      );
-    });
-    this.worker.on('completed', (tarefa) => {
-      this.logger.log(`Expurgo concluído (tarefa ${tarefa.id}).`);
-    });
-
-    await this.agendar();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.worker?.close();
-    await this.fila?.close();
-    this.conexao?.disconnect();
-  }
-
-  /**
-   * Agendamento periódico. `jobId` fixo mantém uma única série repetida mesmo
-   * com a API em mais de uma instância.
-   */
-  private async agendar(): Promise<void> {
-    const horas = this.config.get<number>('EXPURGO_INTERVALO_HORAS', 24);
-
-    await this.fila?.add(
-      TAREFA_EXPURGO,
-      { origem: 'agendamento' },
+    this.tarefa = new TarefaPeriodica(
       {
-        repeat: { every: horas * 60 * 60_000 },
-        jobId: 'expurgo-periodico',
-        ...this.opcoesDeTentativa(),
+        nome: 'Expurgo',
+        intervaloMs: horas * 60 * 60_000,
+        tentativas: ExpurgoService.TENTATIVAS,
+        backoffMs: ExpurgoService.BACKOFF_MS,
+      },
+      async () => {
+        this.logger.log('Executando expurgo (origem: agendamento).');
+        await this.executarAgora();
       },
     );
 
+    this.tarefa.iniciar();
     this.logger.log(`Expurgo agendado a cada ${horas} h.`);
   }
 
+  async onModuleDestroy(): Promise<void> {
+    await this.tarefa?.parar();
+  }
+
   /**
-   * Chamado quando a coleta é encerrada. Enfileira o expurgo técnico daquela
-   * pesquisa; sem fila, executa na hora.
+   * Chamado quando a coleta é encerrada. Faz o expurgo técnico daquela pesquisa
+   * na hora — é trabalho de uma pesquisa só, não justifica esperar o ciclo.
    *
    * Falha aqui **não** derruba o encerramento: a coleta encerrada é o fato de
    * negócio, e o ciclo periódico pega a pendência de qualquer forma.
    */
   async aoEncerrarColeta(formularioId: string): Promise<void> {
     try {
-      if (!this.fila) {
-        await this.expurgarTecnicoDe(formularioId);
-        return;
-      }
-
-      await this.fila.add(
-        TAREFA_EXPURGO,
-        { origem: 'encerramento', formularioId },
-        this.opcoesDeTentativa(),
-      );
+      await this.expurgarTecnicoDe(formularioId);
     } catch (erro) {
       this.logger.error(
-        `Não foi possível agendar o expurgo técnico da pesquisa ${formularioId}: ${
+        `Não foi possível fazer o expurgo técnico da pesquisa ${formularioId}: ${
           erro instanceof Error ? erro.message : String(erro)
         }`,
       );
@@ -157,29 +111,20 @@ export class ExpurgoService implements OnModuleInit, OnModuleDestroy {
     return this.repositorio.situacao(new Date());
   }
 
-  /** Enfileira a execução, se houver fila. Sem fila, executa direto. */
+  /**
+   * Pedido de execução vindo da tela. Com o ciclo ligado, roda em segundo plano
+   * e a rota responde na hora — o expurgo apaga em lotes e pode demorar. Sem
+   * ciclo, executa e só então responde.
+   */
   async solicitarExecucao(): Promise<'enfileirada' | 'executada'> {
-    if (!this.fila) {
+    if (!this.tarefa) {
       await this.executarAgora();
       return 'executada';
     }
 
-    await this.fila.add(TAREFA_EXPURGO, { origem: 'manual' }, this.opcoesDeTentativa());
+    this.logger.log('Executando expurgo (origem: manual).');
+    this.tarefa.disparar();
     return 'enfileirada';
-  }
-
-  private opcoesDeTentativa() {
-    return {
-      attempts: ExpurgoService.TENTATIVAS,
-      backoff: { type: 'exponential' as const, delay: ExpurgoService.BACKOFF_MS },
-      removeOnComplete: 50,
-      removeOnFail: 100,
-    };
-  }
-
-  private async executar(tarefa: Job<DadosDaTarefa>): Promise<void> {
-    this.logger.log(`Executando expurgo (origem: ${tarefa.data.origem}).`);
-    await this.executarAgora(tarefa.data.formularioId);
   }
 
   /** Expurgo técnico de todas as pesquisas encerradas ainda pendentes. */

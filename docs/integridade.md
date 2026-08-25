@@ -110,11 +110,14 @@ Todas contam **apenas `status = 'VALIDA'`**, e o percentual é sempre derivado
 (`ROUND(total * 100 / total_da_pergunta, 2)`). Cada view tem índice único, o que
 permite `REFRESH ... CONCURRENTLY`: a leitura não trava durante a atualização.
 
-A atualização roda em job BullMQ (`AGREGACAO_INTERVALO_MIN`, padrão 10 min), com
-5 tentativas e backoff exponencial. `REFRESH` recalcula do zero, então repetir a
-tarefa é inofensivo — a idempotência é da própria operação. Sem `REDIS_URL` a
-fila não sobe e a atualização fica disponível sob demanda; a API não deixa de
-subir por causa da infraestrutura de fila.
+A atualização roda numa tarefa periódica em processo (`AGREGACAO_INTERVALO_MIN`,
+padrão 10 min), com 5 tentativas e backoff exponencial. `REFRESH` recalcula do
+zero, então repetir a tarefa é inofensivo — a idempotência é da própria
+operação. `AGREGACAO_INTERVALO_MIN=0` desliga o ciclo e deixa a atualização só
+sob demanda.
+
+Com a API replicada, cada réplica roda o próprio ciclo: desperdiça trabalho, não
+corrompe dado. É a contrapartida de não depender de Redis.
 
 `POST /agregacao/atualizar` (Administrador) força o recálculo — útil depois de
 invalidar respostas em lote.

@@ -19,20 +19,6 @@ services:
       timeout: 5s
       retries: 10
 
-  redis:
-    image: redis:7-alpine
-    container_name: spe-dev-redis
-    command: ['redis-server', '--appendonly', 'yes']
-    ports:
-      - '6379:6379'
-    volumes:
-      - dados-redis:/data
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   api:
     build:
       context: ../apps/api
@@ -45,7 +31,6 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-spe}:${POSTGRES_PASSWORD:-spe}@db:5432/${POSTGRES_DB:-spe_dev}?schema=public
       JWT_SECRET: ${JWT_SECRET:-segredo-de-desenvolvimento-com-32-caracteres}
       TLS_OBRIGATORIO: "false"
-      REDIS_URL: redis://redis:6379
       CORS_ORIGINS: http://localhost:5173
     ports:
       - '3000:3000'
@@ -55,9 +40,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
 
 volumes:
   dados-postgres:
-  dados-redis:

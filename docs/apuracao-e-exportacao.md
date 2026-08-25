@@ -65,6 +65,12 @@ isso, conteúdo vindo do banco viraria fórmula ao abrir no Excel.
 
 ### PDF
 
+> **Desligado por padrão.** `EXPORTACAO_PDF_HABILITADO=false` faz a rota recusar
+> com `503` e orientar CSV ou XLSX. O PDF é o único recurso que exige Chromium na
+> imagem, e é o que impede a API de caber em hospedagem gratuita. Para ligar:
+> subir a imagem no alvo `production-pdf` do Dockerfile — que traz o Chromium e o
+> Puppeteer — e definir `EXPORTACAO_PDF_HABILITADO=true`.
+
 O Puppeteer abre **o próprio painel** em modo de impressão
 (`?impressao=1&formularioId=…`), como o backlog decidiu: os gráficos não são
 reimplementados no servidor, então PDF e tela não podem divergir.
@@ -80,9 +86,9 @@ Operação:
 - `PAINEL_URL` precisa ser a **URL pública** do painel: é a origem que passa no
   CORS da API e a mesma que os usuários acessam. O host tem de ser resolvível de
   dentro do container da API;
-- a imagem da API instala o Chromium do sistema (`PUPPETEER_EXECUTABLE_PATH`),
-  porque o Chromium que o Puppeteer baixa é compilado para glibc e não roda em
-  Alpine;
+- o alvo `production-pdf` da imagem instala o Chromium do sistema
+  (`PUPPETEER_EXECUTABLE_PATH`), porque o Chromium que o Puppeteer baixa é
+  compilado para glibc e não roda em Alpine. O alvo `production` não o traz;
 - `EXPORTACAO_PDF_TIMEOUT_MS` limita cada tentativa; são duas tentativas e a
   falha vira `503`, não erro silencioso;
 - `EXPORTACAO_PDF_TLS_INVALIDO=true` só em homologação, onde o certificado é

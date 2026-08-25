@@ -65,7 +65,13 @@ const PERGUNTAS: Definicao[] = [
   {
     enunciado: 'Se a eleição para Governador da Bahia fosse hoje, em quem você votaria?',
     tipo: PerguntaTipo.UNICA_ESCOLHA,
-    alternativas: ['Jerônimo Rodrigues', 'ACM Neto', 'Outro candidato', 'Branco/Nulo', 'Ainda não sei'],
+    alternativas: [
+      'Jerônimo Rodrigues',
+      'ACM Neto',
+      'Outro candidato',
+      'Branco/Nulo',
+      'Ainda não sei',
+    ],
   },
   {
     enunciado: 'Como você avalia o atual Governo da Bahia?',
@@ -147,7 +153,9 @@ async function main(): Promise<void> {
   });
 
   if (existente) {
-    console.log(`Pesquisa "${TITULO}" já existe (${existente.id}, ${existente.status}). Nada a fazer.`);
+    console.log(
+      `Pesquisa "${TITULO}" já existe (${existente.id}, ${existente.status}). Nada a fazer.`,
+    );
     return;
   }
 

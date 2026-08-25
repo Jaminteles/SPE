@@ -163,7 +163,7 @@ Este módulo é operado **dentro do próprio aplicativo**, em área restrita ao 
 
 **Painel web (React + TypeScript + Vite)** — consome a API, renderiza gráficos e permite exportação.
 
-**Processamento assíncrono (BullMQ + Redis)** — executa a rotina de agregação e o expurgo programado dos 4 anos.
+**Processamento assíncrono (tarefa periódica em processo)** — executa a rotina de agregação e o expurgo programado dos 4 anos. Não depende de Redis: as duas rotinas são idempotentes e não precisam de estado durável de fila.
 
 ### 5.1 Stack definida
 
@@ -177,7 +177,7 @@ Este módulo é operado **dentro do próprio aplicativo**, em área restrita ao 
 | ORM | Prisma |
 | Painel web | React + TypeScript + Vite |
 | Gráficos | Recharts (gráficos padrão) ou ECharts (se houver mapa por município) |
-| Filas e agendamento | BullMQ + Redis |
+| Agendamento | Tarefa periódica no processo da API |
 | Autenticação | JWT com senha em hash forte |
 | Anti-robô | Cloudflare Turnstile |
 | Exportação XLSX | ExcelJS |

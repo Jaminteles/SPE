@@ -35,7 +35,7 @@ trafega em URL, query param ou log.
 
 ## Retenção e expurgo
 
-Os dois prazos são automáticos, executados pelo job BullMQ do módulo
+Os dois prazos são automáticos, executados pela tarefa periódica do módulo
 `apps/api/src/expurgo` — não existe botão que escolha *o que* apagar:
 
 1. **Encerramento da coleta** → expurgo técnico. O hash do dispositivo vira
