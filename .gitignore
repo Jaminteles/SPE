@@ -24,6 +24,11 @@ Thumbs.db
 
 apps/api/prisma/.tmp/
 
+# Projeto nativo gerado por `expo prebuild`: e derivado do app.json e dos
+# plugins, refeito a cada build. Versionar so criaria duas fontes de verdade.
+apps/app/android/
+apps/app/ios/
+
 # Assinatura do APK: a chave e a senha do keystore nunca entram no repositorio.
 apps/app/credentials.json
 *.jks

@@ -1,0 +1,184 @@
+# Publicação sem custos
+
+Como colocar o SPE no ar de forma que qualquer pessoa baixe o aplicativo e
+responda a pesquisa, sem nenhuma máquina sua ligada e sem mensalidade.
+
+Nada aqui depende do seu computador depois de configurado. O que fica na sua
+máquina é só o desenvolvimento e a homologação em rede local.
+
+## O desenho
+
+| Peça | Onde | Por quê |
+|---|---|---|
+| Banco PostgreSQL | Neon | Postgres gerenciado com plano gratuito |
+| API NestJS | Render ou Fly.io | contêiner com HTTPS válido de graça |
+| Painel + página de download | Cloudflare Pages | estático, não hiberna, domínio grátis |
+| Compilação do APK | GitHub Actions | sem cota mensal, ao contrário do EAS Build |
+| Arquivo do APK | GitHub Releases | link estável e público |
+
+> Planos gratuitos mudam. Confira os limites vigentes de cada serviço antes de
+> se comprometer — o desenho acima não depende de nenhum recurso exótico, então
+> trocar um provedor por outro equivalente é barato.
+
+## O que já foi preparado no código
+
+- **sem Redis**: agregação e expurgo rodam numa tarefa periódica dentro da
+  própria API. Um serviço a menos para hospedar;
+- **sem Chromium**: a exportação em PDF vem desligada
+  (`EXPORTACAO_PDF_HABILITADO=false`) e a imagem de produção não traz navegador.
+  CSV e XLSX continuam funcionando. Ver
+  [apuracao-e-exportacao.md](./apuracao-e-exportacao.md);
+- **migração no boot**: `npm run start:prod` roda `prisma migrate deploy` antes
+  de subir, então apontar para um banco vazio não exige passo manual;
+- **escuta em `0.0.0.0`**: sem isso a hospedagem em contêiner não enxerga a API.
+
+## 1. Banco de dados (Neon)
+
+Crie um projeto e copie a connection string. Ela vai ser o `DATABASE_URL` da
+API — inclua `?sslmode=require`.
+
+O plano gratuito hiberna o banco depois de um tempo sem uso e acorda sozinho na
+conexão seguinte, o que soma alguns segundos à primeira requisição do dia.
+
+## 2. API (Render ou Fly.io)
+
+No Render, crie um **Web Service** ligado ao repositorio, com runtime Docker:
+
+| Campo | Valor |
+|---|---|
+| Root Directory | `apps/api` |
+| Dockerfile Path | `./Dockerfile` |
+| Instance Type | Free |
+| Health Check Path | `/api/v1/health` |
+
+O `production` e o **ultimo** estagio do Dockerfile de proposito: sem
+`--target`, o Docker constroi o ultimo, e o Render nao deixa escolher o alvo.
+Se quiser o PDF, use `production-pdf` numa plataforma que aceite alvo.
+
+So tres variaveis sao obrigatorias para a API subir: `DATABASE_URL`,
+`JWT_SECRET` e `DEVICE_HASH_PEPPER`. As demais tem padrao razoavel —
+`TLS_OBRIGATORIO` inclusive ja vem `true`, porque a imagem define
+`NODE_ENV=production`.
+
+Variáveis obrigatórias:
+
+| Variável | Valor |
+|---|---|
+| `DATABASE_URL` | a string do Neon |
+| `NODE_ENV` | `production` |
+| `JWT_SECRET` | 32+ caracteres, aleatório |
+| `DEVICE_HASH_PEPPER` | 32+ caracteres, aleatório |
+| `CORS_ORIGINS` | a URL do painel no Cloudflare Pages |
+| `PAINEL_URL` | a mesma URL do painel |
+| `COLETA_BASE_URL` | a mesma URL do painel |
+| `TLS_OBRIGATORIO` | `true` |
+| `APP_URL_DOWNLOAD` | `<painel>/download.html` |
+
+Gere os dois segredos com:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+`PORT` costuma ser injetada pelo próprio serviço; a API usa o que vier.
+
+Depois do primeiro deploy, crie o Administrador inicial rodando uma vez, no
+console do serviço ou apontando para o mesmo banco a partir da sua máquina:
+
+```bash
+ADMIN_NOME="Nome Sobrenome" ADMIN_EMAIL=admin@exemplo.br ADMIN_SENHA="..." \
+  npm --prefix apps/api run criar-admin
+```
+
+> **Hibernação.** No plano gratuito do Render o serviço dorme sem tráfego e a
+> primeira resposta depois disso demora perto de um minuto. Para a coleta em
+> campo isso é tolerável: o aplicativo tem fila local e reenvia sozinho. Se
+> incomodar, o caminho é uma instância paga pequena — não há truque grátis
+> honesto para isso.
+
+## 3. Painel e página de download (Cloudflare Pages)
+
+- diretório raiz: `apps/painel`
+- comando: `npm ci && npm run build`
+- saída: `dist`
+- variável de ambiente: `VITE_API_URL` = `https://<sua-api>/api/v1`
+
+`VITE_API_URL` é lida **no build**, tanto pelo painel quanto pela
+`download.html`. Mudar a URL da API exige rodar o build de novo — não basta
+mexer na configuração do serviço.
+
+Anote a URL que o Pages te der: ela é o `CORS_ORIGINS`, o `PAINEL_URL` e o
+`COLETA_BASE_URL` do passo 2. As duas pontas precisam concordar.
+
+## 4. Aplicativo (GitHub Actions + Releases)
+
+Em Settings → Secrets and variables → Actions:
+
+**Variables** (não são segredos):
+
+| Nome | Valor |
+|---|---|
+| `SPE_API_URL` | `https://<sua-api>/api/v1` |
+
+**Secrets**:
+
+| Nome | Valor |
+|---|---|
+| `SPE_KEYSTORE_BASE64` | o arquivo `.jks` em base64 |
+| `SPE_KEYSTORE_SENHA` | senha do keystore |
+| `SPE_KEYSTORE_ALIAS` | alias da chave (ex.: `spe-coleta`) |
+| `SPE_KEYSTORE_SENHA_CHAVE` | senha da chave |
+
+Para gerar o base64 do keystore:
+
+```bash
+base64 -w0 spe-coleta.jks > spe-coleta.jks.base64
+```
+
+No Windows, sem `base64`:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("spe-coleta.jks")) | Set-Content spe-coleta.jks.base64
+```
+
+Cadastre o conteúdo desse arquivo você mesmo, pela interface do GitHub, e apague
+o `.base64` depois. Geração da chave e o que o workflow faz com ela:
+[operacao.md](./operacao.md#a-chave-de-assinatura).
+
+Teste a esteira antes de queimar uma versão: rode o workflow por
+**Run workflow** (`workflow_dispatch`). Ele compila e deixa o APK como artefato
+do run, sem criar Release.
+
+Para publicar de verdade, crie a tag que bate com o `app.json`:
+
+```bash
+git tag app-v0.1.0 && git push origin app-v0.1.0
+```
+
+Terminado o run, pegue o link do APK e o SHA-256 das notas do Release e preencha
+`APP_URL_APK`, `APP_APK_SHA256` e `APP_VERSAO_ATUAL` na API. Reinicie a API: a
+página de download passa a oferecer o arquivo.
+
+## 5. Conferir a ponta a ponta
+
+1. abrir `<painel>/download.html` — precisa mostrar versão e hash, não
+   "indisponível no momento". Se mostrar, a API não está respondendo ou o
+   `CORS_ORIGINS` não inclui a origem do painel;
+2. instalar o APK num aparelho e abrir — se fechar sozinho na abertura, o
+   `SPE_API_URL` do build estava vazio ou em HTTP;
+3. responder uma pesquisa de teste e conferir se aparece no painel;
+4. conferir o hash antes de instalar, como a própria página instrui.
+
+## Custos que aparecem depois
+
+Coisas que o plano gratuito não cobre e que valem estar no radar:
+
+- **exportação em PDF**: precisa de Chromium e de memória. Alvo `production-pdf`
+  do Dockerfile e `EXPORTACAO_PDF_HABILITADO=true`, numa instância maior;
+- **domínio próprio**: os subdomínios dos provedores são grátis; um `.com.br`
+  não é;
+- **volume**: o plano gratuito do banco tem teto de armazenamento e de
+  computação. Pesquisa grande estoura;
+- **backup**: `infra/scripts/backup-postgres.sh` foi escrito para o Postgres em
+  contêiner. Com o banco gerenciado, o backup passa a ser o do provedor —
+  confira o que o plano gratuito realmente retém.

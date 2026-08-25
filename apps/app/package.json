@@ -10,8 +10,8 @@
     "web": "expo start --web",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
-    "build:apk": "eas build --platform android --profile producao",
-    "build:apk:hml": "eas build --platform android --profile homologacao"
+    "build:apk:hml": "eas build --platform android --profile homologacao",
+    "prebuild": "expo prebuild --platform android --no-install --clean"
   },
   "dependencies": {
     "expo": "~52.0.23",

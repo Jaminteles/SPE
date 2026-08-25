@@ -53,7 +53,8 @@
       ],
       "expo-updates",
       "expo-asset",
-      "./plugins/confiar-certificado-do-usuario"
+      "./plugins/confiar-certificado-do-usuario",
+      "./plugins/assinar-release"
     ],
     "updates": {
       "enabled": true,

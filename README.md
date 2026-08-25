@@ -95,6 +95,11 @@ exportação em CSV, XLSX e PDF: [docs/apuracao-e-exportacao.md](./docs/apuracao
 Duplicidade, marcação automática de suspeita, invalidação manual e a agregação
 pré-calculada: [docs/integridade.md](./docs/integridade.md).
 
+## Publicação
+
+Colocar no ar sem custos — banco, API, painel e distribuição do APK, serviço a
+serviço: [docs/publicacao.md](./docs/publicacao.md).
+
 ## Operação e homologação
 
 Backup da base, distribuição e assinatura do APK, verificação de versão e teste de carga:

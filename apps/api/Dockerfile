@@ -40,8 +40,8 @@ FROM deps AS build
 COPY . .
 RUN npx prisma generate && npm run build && npm prune --omit=dev
 
-# ---- producao / homologacao ---------------------------------------------
-FROM base AS production
+# ---- runtime -------------------------------------------------------------
+FROM base AS runtime
 ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
@@ -57,8 +57,14 @@ CMD ["npm", "run", "start:prod"]
 # Alvo opcional, para instancia com memoria sobrando: adiciona o Chromium e o
 # Puppeteer (que e devDependency e some no prune). Suba com
 # EXPORTACAO_PDF_HABILITADO=true, senao o PDF continua recusando.
-FROM production AS production-pdf
+FROM runtime AS production-pdf
 USER root
 RUN apk add --no-cache chromium nss freetype harfbuzz ttf-freefont && npm install --no-save puppeteer
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 USER node
+
+# ---- producao / homologacao (padrao) -------------------------------------
+# Precisa ser o ULTIMO estagio: sem `--target`, o Docker constroi o ultimo, e
+# varias hospedagens (Render entre elas) nao deixam escolher o alvo. Se o
+# production-pdf ficasse por ultimo, todo deploy carregaria o Chromium junto.
+FROM runtime AS production

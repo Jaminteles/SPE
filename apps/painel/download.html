@@ -189,8 +189,11 @@
     </main>
 
     <script>
-      // A página é servida pelo mesmo host da API (o proxy encaminha /api).
-      const API = window.location.origin + '/api/v1';
+      // Injetado pelo Vite no build (VITE_API_URL). Esta página costuma ser
+      // hospedada separada da API — em homologação o proxy põe as duas na mesma
+      // origem, mas em hospedagem estática elas ficam em domínios diferentes,
+      // e supor a origem local levaria a um fetch que nunca responde.
+      const API = '%VITE_API_URL%'.replace(/\/+$/, '');
 
       fetch(API + '/aplicativo/versao', { headers: { Accept: 'application/json' } })
         .then((resposta) => {

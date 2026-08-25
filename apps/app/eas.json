@@ -23,18 +23,6 @@
         "buildType": "apk"
       },
       "credentialsSource": "local"
-    },
-    "producao": {
-      "distribution": "internal",
-      "channel": "producao",
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://ALTERAR-ANTES-DO-DISPARO/api/v1"
-      },
-      "android": {
-        "buildType": "apk"
-      },
-      "credentialsSource": "local",
-      "autoIncrement": true
     }
   }
 }

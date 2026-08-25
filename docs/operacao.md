@@ -71,44 +71,52 @@ Backup nunca testado é backup desconhecido.
 
 ## Distribuição do APK
 
-Sem loja: o APK é gerado pelo EAS Build e baixado da página pública
-`/download.html` (arquivo `apps/painel/public/download.html`, servido pelo mesmo
-host da API).
+Sem loja: o APK é compilado pelo workflow
+[`publicar-apk.yml`](../.github/workflows/publicar-apk.yml), no runner do
+GitHub, e baixado da página pública `/download.html` (arquivo
+`apps/painel/download.html`).
 
-### Gerar e assinar
+O EAS Build não participa mais do caminho de produção — a compilação por Gradle
+no Actions não tem cota mensal e não depende de máquina de ninguém. Os perfis
+`development` e `homologacao` do `eas.json` continuam existindo para uso local.
 
-A chave é **própria** e fica fora do repositório
-(`credentialsSource: "local"` nos perfis `homologacao` e `producao` do
-`eas.json`):
+### A chave de assinatura
+
+A chave é **própria** e fica fora do repositório:
 
 ```bash
-keytool -genkeypair -v -keystore apps/app/chaves/spe-coleta.jks \
+keytool -genkeypair -v -keystore spe-coleta.jks \
   -alias spe-coleta -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-Copie `apps/app/credentials.example.json` para `apps/app/credentials.json` e
-preencha caminho, alias e senhas. O `.gitignore` já barra `credentials.json`,
-`*.jks` e `*.keystore` — a chave e as senhas nunca entram no Git.
-
 > Guarde o keystore e as senhas em cofre. Perder a chave significa não conseguir
 > publicar atualização que instale por cima da versão anterior: os aparelhos
-> recusam APK assinado por chave diferente.
+> recusam APK assinado por chave diferente. Não há recuperação — só desinstalar
+> e reinstalar, perdendo o que estiver na fila local de envio.
 
-```bash
-npm --prefix apps/app run build:apk        # perfil producao
-npm --prefix apps/app run build:apk:hml    # perfil homologacao
-```
+O `plugins/assinar-release.js` troca, no `build.gradle` gerado pelo `prebuild`,
+a assinatura de debug pela chave real. Ele lê tudo de variável de ambiente, e o
+Gradle interpola no momento do build: a senha não chega a ser escrita em arquivo
+nenhum. Se o plugin não encontrar o que espera no `build.gradle`, ele derruba o
+build — cair de volta na chave de debug em silêncio seria publicar um APK que
+ninguém consegue atualizar depois. O workflow ainda confere o certificado do
+APK pronto com `apksigner`, como segunda rede.
+
+Para build local assinado, exporte as mesmas variáveis antes do `prebuild`:
+`SPE_KEYSTORE_ARQUIVO`, `SPE_KEYSTORE_SENHA`, `SPE_KEYSTORE_ALIAS` e
+`SPE_KEYSTORE_SENHA_CHAVE`. Sem `SPE_KEYSTORE_ARQUIVO` o plugin não age e o
+build sai com a chave de debug, como qualquer projeto Expo.
 
 ### Para onde o APK aponta
 
-Cada perfil do `eas.json` define `EXPO_PUBLIC_API_URL`. Isso não é conforto: o
+`EXPO_PUBLIC_API_URL` define a API que vai no bundle. Isso não é conforto: o
 `apps/app/src/config/ambiente.ts` recusa build de distribuição apontado para
 HTTP, e a exceção estoura na carga do módulo — sem a variável, o APK instala e
 **fecha ao abrir**, sem mensagem útil no aparelho.
 
-O perfil `producao` está com um endereço propositalmente inválido
-(`ALTERAR-ANTES-DO-DISPARO`). Trocar por um domínio com certificado de AC faz
-parte do checklist de liberação.
+Em produção o valor vem da variável de repositório `SPE_API_URL` (Settings →
+Secrets and variables → Actions → *Variables*, não *Secrets*: é uma URL pública,
+não segredo). O workflow falha cedo e com mensagem clara se ela estiver vazia.
 
 Para homologação em aparelho real na rede local, o endereço é o IP da máquina
 que roda o Docker, e o certificado precisa cobrir esse IP:
@@ -127,31 +135,38 @@ Segurança → Instalar certificado) ou o app vai falhar no TLS. Confira também
 o firewall do Windows libera a porta 443 para a rede privada — sem isso o
 celular não alcança o host.
 
-Antes do primeiro build, o projeto precisa estar ligado à conta EAS:
+### Atualização de conteúdo (opcional)
+
+O `expo-updates` só funciona com o projeto ligado a uma conta EAS:
 
 ```bash
-npx eas init            # cria o projectId em app.json > extra.eas
-npx eas update:configure # preenche updates.url, usado pelo expo-updates
+npx eas init             # cria o projectId em app.json > extra.eas
+npx eas update:configure # preenche updates.url
 ```
 
-Sem esses dois passos o `expo-updates` sobe desativado — o aplicativo continua
+Sem esses passos o `expo-updates` sobe desativado — o aplicativo continua
 funcionando e a verificação de versão continua valendo, mas não há atualização
-de conteúdo.
+de conteúdo. A distribuição por APK não depende disso.
 
 ### Publicar a versão
 
-1. baixar o APK do EAS e calcular o hash:
-   `sha256sum spe-coleta.apk` (ou `certutil -hashfile spe-coleta.apk SHA256`);
-2. publicar o arquivo em um endereço estável;
-3. atualizar no ambiente da API:
+1. subir `expo.version` em `apps/app/app.json`;
+2. criar a tag correspondente — `app-v0.2.0` para a versão `0.2.0`. O workflow
+   confere que as duas batem e recusa publicar se divergirem;
+3. o Actions compila, assina, confere a assinatura e cria o Release com o APK e
+   o SHA-256 nas notas;
+4. atualizar no ambiente da API:
    - `APP_VERSAO_ATUAL` — versão publicada;
    - `APP_VERSAO_MINIMA` — abaixo dela o aplicativo **bloqueia** a coleta;
-   - `APP_URL_APK` — endereço do arquivo;
+   - `APP_URL_APK` — link do arquivo no Release;
    - `APP_URL_DOWNLOAD` — endereço da página de instruções;
-   - `APP_APK_SHA256` — hash calculado no passo 1;
+   - `APP_APK_SHA256` — hash que o workflow calculou;
    - `APP_NOTAS_DA_VERSAO` — o que mudou;
-4. reiniciar a API. A página de download e o aplicativo passam a ver a versão
-   nova na hora seguinte à abertura.
+5. reiniciar a API. A página de download e o aplicativo passam a ver a versão
+   nova na abertura seguinte.
+
+`workflow_dispatch` gera o APK como artefato do run, sem criar Release: serve
+para testar a esteira sem queimar uma versão.
 
 `APP_VERSAO_MINIMA` só sobe quando a versão anterior realmente não pode mais
 gravar resposta (mudança de contrato da API). Bloquear por conforto tira gente
