@@ -15,7 +15,7 @@ if (!emDesenvolvimento && !API_URL.startsWith('https://')) {
 
 export const ambiente = {
   /** Espelha `expo.version` do app.json: e a versao que a verificacao compara. */
-  versaoDoAplicativo: '0.1.1',
+  versaoDoAplicativo: '0.1.2',
   apiUrl: API_URL,
   emDesenvolvimento,
   /** Teto de espera de uma chamada; sem isso o app trava em rede ruim. */

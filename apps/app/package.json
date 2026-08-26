@@ -1,7 +1,7 @@
 {
   "name": "@spe/app",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "main": "index.ts",
   "description": "Aplicativo de coleta e administracao do Sistema de Pesquisa Eleitoral",
   "scripts": {
