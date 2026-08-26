@@ -32,6 +32,7 @@ model Perfil {
 enum PerfilCodigo {
   ADMINISTRADOR
   ANALISTA
+  PESQUISADOR
 
   @@map("perfil_codigo")
 }

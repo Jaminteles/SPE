@@ -13,7 +13,7 @@ describe('ExportacaoService', () => {
   let servico: ExportacaoService;
 
   const resultados = {
-    formularios: jest.fn(),
+    formulario: jest.fn(),
     indicadores: jest.fn(),
     porPergunta: jest.fn(),
     ranking: jest.fn(),
@@ -27,17 +27,15 @@ describe('ExportacaoService', () => {
   beforeEach(async () => {
     jest.resetAllMocks();
 
-    resultados.formularios.mockResolvedValue([
-      {
-        id: 'form-1',
-        titulo: 'Pesquisa Eleitoral — Bahia 2026',
-        status: FormularioStatus.EM_COLETA,
-        versao: 1,
-        publicadoEm: new Date('2026-08-01T12:00:00Z'),
-        encerradoEm: null,
-        respostasValidas: 200,
-      },
-    ]);
+    resultados.formulario.mockResolvedValue({
+      id: 'form-1',
+      titulo: 'Pesquisa Eleitoral — Bahia 2026',
+      status: FormularioStatus.EM_COLETA,
+      versao: 1,
+      publicadoEm: new Date('2026-08-01T12:00:00Z'),
+      encerradoEm: null,
+      respostasValidas: 200,
+    });
     resultados.indicadores.mockResolvedValue({
       respostasValidas: 200,
       respostasEmConferencia: 3,
@@ -168,7 +166,7 @@ describe('ExportacaoService', () => {
   });
 
   it('recusa exportar pesquisa inexistente ou em rascunho', async () => {
-    resultados.formularios.mockResolvedValue([]);
+    resultados.formulario.mockResolvedValue(null);
 
     await expect(servico.exportar('csv', 'form-1', {}, autor, '')).rejects.toBeInstanceOf(
       NotFoundException,

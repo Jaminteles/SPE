@@ -7,6 +7,7 @@ import { AgregacaoModule } from './agregacao/agregacao.module';
 import { AplicativoModule } from './aplicativo/aplicativo.module';
 import { AuditoriaModule } from './auditoria/auditoria.module';
 import { AuthModule } from './auth/auth.module';
+import { DonoDoFormularioGuard } from './auth/guards/dono-do-formulario.guard';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { PerfisGuard } from './auth/guards/perfis.guard';
 import { ColetaModule } from './coleta/coleta.module';
@@ -54,10 +55,13 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     AplicativoModule,
   ],
   providers: [
-    // A ordem importa: limite de requisições, depois identidade, depois permissão.
+    // A ordem importa: limite de requisições, depois identidade, depois perfil,
+    // e só então propriedade — de nada adianta perguntar de quem é a pesquisa
+    // antes de saber quem está perguntando.
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: PerfisGuard },
+    { provide: APP_GUARD, useClass: DonoDoFormularioGuard },
   ],
 })
 export class AppModule {}

@@ -12,6 +12,7 @@ import {
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PerfilCodigo } from '@prisma/client';
 
+import { DonoDoFormulario } from '../auth/decorators/dono-do-formulario.decorator';
 import { Perfis } from '../auth/decorators/perfis.decorator';
 import { UsuarioAtual } from '../auth/decorators/usuario-atual.decorator';
 import { UsuarioAutenticado } from '../auth/tipos';
@@ -37,7 +38,8 @@ import { RespostasService } from './respostas.service';
  */
 @ApiTags('respostas')
 @ApiBearerAuth()
-@Perfis(PerfilCodigo.ADMINISTRADOR)
+@Perfis(PerfilCodigo.ADMINISTRADOR, PerfilCodigo.PESQUISADOR)
+@DonoDoFormulario()
 @Controller('formularios/:formularioId/respostas')
 export class RespostasController {
   constructor(private readonly servico: RespostasService) {}

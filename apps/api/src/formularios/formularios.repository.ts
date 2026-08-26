@@ -113,10 +113,15 @@ export class FormulariosRepository {
 
   async listar(filtro: {
     status?: FormularioStatus;
+    /** Restringe ao dono.  lista de todos — perfil que enxerga tudo. */
+    donoId?: string;
     limite: number;
     deslocamento: number;
   }): Promise<{ itens: FormularioResumo[]; total: number }> {
-    const where: Prisma.FormularioWhereInput = filtro.status ? { status: filtro.status } : {};
+    const where: Prisma.FormularioWhereInput = {
+      ...(filtro.status ? { status: filtro.status } : {}),
+      ...(filtro.donoId ? { criadoPorId: filtro.donoId } : {}),
+    };
 
     const [brutos, total] = await this.prisma.$transaction([
       this.prisma.formulario.findMany({

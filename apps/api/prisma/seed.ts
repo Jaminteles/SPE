@@ -26,6 +26,11 @@ const PERFIS: { codigo: PerfilCodigo; nome: string; descricao: string }[] = [
     nome: 'Analista',
     descricao: 'Consulta resultados agregados e exporta dados.',
   },
+  {
+    codigo: PerfilCodigo.PESQUISADOR,
+    nome: 'Pesquisador',
+    descricao: 'Cria e gerencia as próprias pesquisas. Não enxerga pesquisa de outro usuário.',
+  },
 ];
 
 async function carregarPerfis() {

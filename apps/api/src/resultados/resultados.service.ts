@@ -1,3 +1,5 @@
+import { donoExigido } from '../auth/escopo-do-formulario';
+import { UsuarioAutenticado } from '../auth/tipos';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 
 import {
@@ -18,8 +20,21 @@ import { Recorte, ResultadosRepository } from './resultados.repository';
 export class ResultadosService {
   constructor(private readonly repositorio: ResultadosRepository) {}
 
-  async formularios(): Promise<FormularioComResultadoResponse[]> {
-    return this.repositorio.formulariosComResultado();
+  /** Quem nao enxerga tudo so lista as proprias pesquisas. */
+  async formularios(requisitante: UsuarioAutenticado): Promise<FormularioComResultadoResponse[]> {
+    return this.repositorio.formulariosComResultado({ donoId: donoExigido(requisitante) });
+  }
+
+  /**
+   * Uma pesquisa, para quem ja chegou aqui com o id em maos.
+   *
+   * Sem recorte por dono de proposito: as rotas que chamam isto passam pelo
+   * `DonoDoFormularioGuard`, que ja recusou id de pesquisa alheia. Repetir a
+   * checagem aqui custaria uma consulta e nao acrescentaria garantia.
+   */
+  async formulario(formularioId: string): Promise<FormularioComResultadoResponse | null> {
+    const [encontrado] = await this.repositorio.formulariosComResultado({ id: formularioId });
+    return encontrado ?? null;
   }
 
   async indicadores(

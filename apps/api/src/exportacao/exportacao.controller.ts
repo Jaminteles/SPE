@@ -4,6 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { PerfilCodigo } from '@prisma/client';
 import { Response } from 'express';
 
+import { DonoDoFormulario } from '../auth/decorators/dono-do-formulario.decorator';
 import { Perfis } from '../auth/decorators/perfis.decorator';
 import { TokenDaRequisicao } from '../auth/decorators/token-da-requisicao.decorator';
 import { UsuarioAtual } from '../auth/decorators/usuario-atual.decorator';
@@ -33,7 +34,8 @@ const LIMITE_POR_JANELA = Number(process.env.EXPORTACAO_THROTTLE_LIMITE ?? 6);
  */
 @ApiTags('exportacao')
 @ApiBearerAuth()
-@Perfis(PerfilCodigo.ADMINISTRADOR, PerfilCodigo.ANALISTA)
+@Perfis(PerfilCodigo.ADMINISTRADOR, PerfilCodigo.ANALISTA, PerfilCodigo.PESQUISADOR)
+@DonoDoFormulario()
 @Throttle({ default: { limit: LIMITE_POR_JANELA, ttl: JANELA_MS } })
 @Controller('exportacao')
 export class ExportacaoController {

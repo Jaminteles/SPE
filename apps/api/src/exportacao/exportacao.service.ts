@@ -88,15 +88,14 @@ export class ExportacaoService {
       ate: filtro.ate,
     };
 
-    const [formularios, indicadores, porPergunta, ranking, evolucao] = await Promise.all([
-      this.resultados.formularios(),
+    const [formulario, indicadores, porPergunta, ranking, evolucao] = await Promise.all([
+      this.resultados.formulario(formularioId),
       this.resultados.indicadores(formularioId, recorte),
       this.resultados.porPergunta(formularioId, recorte),
       this.resultados.ranking(formularioId, recorte),
       this.resultados.evolucao(formularioId, recorte),
     ]);
 
-    const formulario = formularios.find((item) => item.id === formularioId);
     if (!formulario) {
       throw new NotFoundException('Pesquisa não encontrada ou ainda em rascunho.');
     }

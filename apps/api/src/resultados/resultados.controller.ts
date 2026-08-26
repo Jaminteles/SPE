@@ -2,7 +2,10 @@ import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PerfilCodigo } from '@prisma/client';
 
+import { DonoDoFormulario } from '../auth/decorators/dono-do-formulario.decorator';
 import { Perfis } from '../auth/decorators/perfis.decorator';
+import { UsuarioAtual } from '../auth/decorators/usuario-atual.decorator';
+import { UsuarioAutenticado } from '../auth/tipos';
 import {
   AlcancePorMunicipioResponse,
   CoberturaResponse,
@@ -29,7 +32,7 @@ import { ResultadosService } from './resultados.service';
  */
 @ApiTags('resultados')
 @ApiBearerAuth()
-@Perfis(PerfilCodigo.ADMINISTRADOR, PerfilCodigo.ANALISTA)
+@Perfis(PerfilCodigo.ADMINISTRADOR, PerfilCodigo.ANALISTA, PerfilCodigo.PESQUISADOR)
 @Controller('resultados')
 export class ResultadosController {
   constructor(private readonly servico: ResultadosService) {}
@@ -37,10 +40,13 @@ export class ResultadosController {
   @Get('formularios')
   @ApiOperation({ summary: 'Pesquisas com resultado disponível.' })
   @ApiOkResponse({ type: [FormularioComResultadoResponse] })
-  async formularios(): Promise<FormularioComResultadoResponse[]> {
-    return this.servico.formularios();
+  async formularios(
+    @UsuarioAtual() requisitante: UsuarioAutenticado,
+  ): Promise<FormularioComResultadoResponse[]> {
+    return this.servico.formularios(requisitante);
   }
 
+  @DonoDoFormulario()
   @Get(':formularioId/indicadores')
   @ApiOperation({ summary: 'Indicadores gerais do recorte.' })
   @ApiOkResponse({ type: IndicadoresResponse })
@@ -51,6 +57,7 @@ export class ResultadosController {
     return this.servico.indicadores(formularioId, filtro);
   }
 
+  @DonoDoFormulario()
   @Get(':formularioId/perguntas')
   @ApiOperation({ summary: 'Resultado por pergunta e alternativa.' })
   @ApiOkResponse({ type: ResultadoPorPerguntaResponse })
@@ -61,6 +68,7 @@ export class ResultadosController {
     return this.servico.porPergunta(formularioId, filtro);
   }
 
+  @DonoDoFormulario()
   @Get(':formularioId/evolucao')
   @ApiOperation({ summary: 'Evolução diária da coleta.' })
   @ApiOkResponse({ type: EvolucaoResponse })
@@ -71,6 +79,7 @@ export class ResultadosController {
     return this.servico.evolucao(formularioId, filtro);
   }
 
+  @DonoDoFormulario()
   @Get(':formularioId/ranking-municipios')
   @ApiOperation({ summary: 'Ranking por município, com absolutos e percentuais.' })
   @ApiOkResponse({ type: RankingPorMunicipioResponse })
@@ -81,6 +90,7 @@ export class ResultadosController {
     return this.servico.ranking(formularioId, filtro);
   }
 
+  @DonoDoFormulario()
   @Get(':formularioId/cobertura')
   @ApiOperation({ summary: 'Cobertura: municípios alcançados e não alcançados.' })
   @ApiOkResponse({ type: CoberturaResponse })
@@ -90,6 +100,7 @@ export class ResultadosController {
     return this.servico.cobertura(formularioId);
   }
 
+  @DonoDoFormulario()
   @Get(':formularioId/cruzamento')
   @ApiOperation({ summary: 'Cruzamento entre duas perguntas do mesmo formulário.' })
   @ApiOkResponse({ type: CruzamentoResponse })
@@ -100,6 +111,7 @@ export class ResultadosController {
     return this.servico.cruzamento(formularioId, filtro);
   }
 
+  @DonoDoFormulario()
   @Get(':formularioId/municipios')
   @ApiOperation({ summary: 'Alcance por município, para o filtro e a cobertura.' })
   @ApiOkResponse({ type: AlcancePorMunicipioResponse })

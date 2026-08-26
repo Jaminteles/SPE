@@ -4,12 +4,35 @@ Sprint 1. Vale para a API, o painel e o aplicativo.
 
 ## Perfis
 
-Só existem dois perfis autenticados. O respondente **não tem conta**.
+São três perfis autenticados. O respondente **não tem conta**.
 
-| Perfil | Pode |
-|---|---|
-| `ADMINISTRADOR` | tudo da administração: usuários, formulários, integridade, encerramento, auditoria |
-| `ANALISTA` | consultar resultados agregados e exportar |
+| Perfil | Pode | Enxerga |
+|---|---|---|
+| `ADMINISTRADOR` | tudo da administração: usuários, formulários, integridade, encerramento, auditoria | todas as pesquisas |
+| `ANALISTA` | consultar resultados agregados e exportar | todas as pesquisas |
+| `PESQUISADOR` | criar e gerenciar pesquisa, ler o próprio resultado, exportar | **só as próprias** |
+
+### Escopo por dono
+
+O `PESQUISADOR` é o perfil de quem se cadastra sozinho. As duas listas
+(`GET /formularios` e `GET /resultados/formularios`) devolvem só o que é dele, e as 32 rotas
+que recebem id de formulário passam pelo `DonoDoFormularioGuard`, que compara o dono lido do
+banco com a identidade do token.
+
+Pesquisa de outro usuário responde **404, nunca 403**: dizer "existe, mas não é seu"
+transformaria a rota num verificador de existência de pesquisa alheia para quem tivesse o id.
+
+A regra de quem enxerga tudo mora em um lugar só, `auth/escopo-do-formulario.ts` — o guard e os
+services leem dela. Duas cópias divergiriam no primeiro perfil novo, e a divergência apareceria
+como pesquisa de outro usuário numa lista.
+
+O `ADMINISTRADOR` e o `ANALISTA` enxergam tudo de propósito: o primeiro porque precisa dar
+suporte e conter abuso, o segundo porque é conta criada por um Administrador justamente para ler
+o resultado da equipe — escopo por dono deixaria essa conta sem enxergar nada.
+
+Forçar o recálculo das agregações (`POST /agregacao/atualizar`) continua só do Administrador: ele
+recalcula as views inteiras, e liberá-lo daria a qualquer conta um jeito barato de martelar o
+banco. O resultado do `PESQUISADOR` atualiza no ciclo automático, como o de todo mundo.
 
 ## Fluxo
 

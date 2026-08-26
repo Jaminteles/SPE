@@ -308,8 +308,15 @@ export class ResultadosRepository {
     });
   }
 
-  /** Formulários que já saíram do rascunho, com o total de válidas. */
-  async formulariosComResultado(): Promise<
+  /**
+   * Formulários que já saíram do rascunho, com o total de válidas.
+   *
+   * Pesquisas com resultado. `donoId` restringe ao dono; `undefined` lista todas.
+   *
+   * O filtro entra como parametro do `Prisma.sql`, nunca interpolado no texto da
+   * consulta: id vindo de token continua sendo dado, nunca codigo.
+   */
+  async formulariosComResultado(filtro: { donoId?: string; id?: string } = {}): Promise<
     {
       id: string;
       titulo: string;
@@ -320,6 +327,11 @@ export class ResultadosRepository {
       respostasValidas: number;
     }[]
   > {
+    // `undefined` viraria `undefined` no driver; a consulta precisa de um NULL
+    // de verdade para o ramo "sem restricao" valer.
+    const dono = filtro.donoId ?? null;
+    const id = filtro.id ?? null;
+
     const linhas = await this.prisma.$queryRaw<
       {
         id: string;
@@ -336,6 +348,8 @@ export class ResultadosRepository {
         FROM "formulario" f
         LEFT JOIN "mv_resumo_formulario" v ON v."formulario_id" = f."id"
        WHERE f."status" <> 'RASCUNHO'
+         AND (${dono}::uuid IS NULL OR f."criado_por_id" = ${dono}::uuid)
+         AND (${id}::uuid IS NULL OR f."id" = ${id}::uuid)
        ORDER BY f."publicado_em" DESC NULLS LAST
     `);
 

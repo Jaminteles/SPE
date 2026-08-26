@@ -9,6 +9,8 @@ import { AuditoriaAcao, FormularioStatus, PerguntaTipo } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 
 import { AuditoriaService } from '../auditoria/auditoria.service';
+import { donoExigido } from '../auth/escopo-do-formulario';
+import { UsuarioAutenticado } from '../auth/tipos';
 import { ExpurgoService } from '../expurgo/expurgo.service';
 import {
   AtualizarAlternativaDto,
@@ -51,9 +53,16 @@ export class FormulariosService {
   // Formulário
   // -------------------------------------------------------------------------
 
-  async listar(filtro: ListarFormulariosDto) {
+  /**
+   * Lista as pesquisas que o requisitante pode ver.
+   *
+   * Quem nao enxerga tudo so ve as proprias — e o total paginado acompanha o
+   * recorte, senao a paginacao anunciaria pesquisa que a pessoa nunca alcanca.
+   */
+  async listar(filtro: ListarFormulariosDto, requisitante: UsuarioAutenticado) {
     return this.repositorio.listar({
       status: filtro.status,
+      donoId: donoExigido(requisitante),
       limite: filtro.limite ?? LIMITE_PADRAO,
       deslocamento: filtro.deslocamento ?? 0,
     });
