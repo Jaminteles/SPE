@@ -65,6 +65,31 @@ export const servicoAuth = {
     }
   },
 
+  /**
+   * Auto-cadastro. A API responde sempre a mesma mensagem, tenha o e-mail conta
+   * ou não — a tela repassa essa mensagem em vez de inventar uma própria, senão
+   * o app acabaria denunciando o que a API tomou o cuidado de não dizer.
+   */
+  async registrar(dados: { nome: string; email: string; senha: string }): Promise<string> {
+    const { mensagem } = await chamar<{ mensagem: string }>('/auth/registrar', {
+      metodo: 'POST',
+      corpo: {
+        nome: dados.nome.trim(),
+        email: dados.email.trim().toLowerCase(),
+        senha: dados.senha,
+      },
+    });
+    return mensagem;
+  },
+
+  async reenviarConfirmacao(email: string): Promise<string> {
+    const { mensagem } = await chamar<{ mensagem: string }>('/auth/reenviar-confirmacao', {
+      metodo: 'POST',
+      corpo: { email: email.trim().toLowerCase() },
+    });
+    return mensagem;
+  },
+
   async sair(): Promise<void> {
     const accessToken = await armazenamentoDeSessao.lerAccessToken();
     if (accessToken) {

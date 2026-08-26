@@ -10,6 +10,8 @@ export interface VersaoPublicada {
   urlArquivo: string | null;
   sha256: string | null;
   notas: string | null;
+  /** Se esta instalacao aceita auto-cadastro. Decide se a tela oferece registro. */
+  cadastroAberto: boolean;
 }
 
 export type EstadoDaVersao = 'ok' | 'aviso' | 'bloqueado' | 'indisponivel';

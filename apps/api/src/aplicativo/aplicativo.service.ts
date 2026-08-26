@@ -23,6 +23,10 @@ export class AplicativoService {
       urlArquivo: this.config.get<string>('APP_URL_APK') || null,
       sha256: this.config.get<string>('APP_APK_SHA256') || null,
       notas: this.config.get<string>('APP_NOTAS_DA_VERSAO') || null,
+      // Publico de proposito: nao e segredo, e sem isto o aplicativo so
+      // descobriria que o cadastro esta fechado depois de o usuario preencher
+      // o formulario inteiro e levar 403.
+      cadastroAberto: this.config.get<boolean>('CADASTRO_ABERTO', false),
     };
   }
 }

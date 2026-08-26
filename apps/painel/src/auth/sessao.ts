@@ -146,7 +146,10 @@ export const sessao = {
   },
 
   /** Chamada autenticada com uma tentativa de renovação. */
-  async chamarAutenticado<T>(caminho: string, opcoes: { metodo?: 'GET' | 'POST' } = {}): Promise<T> {
+  async chamarAutenticado<T>(
+    caminho: string,
+    opcoes: { metodo?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; corpo?: unknown } = {},
+  ): Promise<T> {
     if (!accessToken) {
       await renovar();
     }

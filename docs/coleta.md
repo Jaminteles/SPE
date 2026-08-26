@@ -126,6 +126,24 @@ O app decide o que mostrar; o servidor **confere tudo de novo**:
 - nenhuma resposta em pergunta que a condição não habilitou;
 - datas declaradas sem absurdo (nada no futuro, coleta não anterior ao aceite).
 
+## Entrada do aplicativo
+
+A primeira tela do app é **responder uma pesquisa**, não o login. É o que a maioria de quem
+abre o aplicativo vem fazer, e não exige conta nenhuma. Quem monta pesquisa entra por
+"Criar/Gerenciar pesquisas", no rodapé.
+
+O campo pede o **link**, não o código. O que a pessoa recebeu foi um link, e mandá-la recortar
+22 caracteres do meio dele é trabalho que o aplicativo pode fazer sozinho. São aceitos:
+
+- o link inteiro (`…/r.html?t=<token>`);
+- o link no meio de uma mensagem — que é como ele chega no WhatsApp;
+- o formato antigo `…/r/<token>`, caso algum QR Code impresso ainda circule;
+- o código sozinho, que é o que a página `r.html` mostra para digitar quando o aparelho não
+  abre o link direto.
+
+Quem já tem sessão aberta não passa por essa tela: reabrir o app cai direto na área
+autenticada.
+
 ## Teto de respostas por aparelho
 
 Um aparelho envia no máximo **10 respostas por hora**

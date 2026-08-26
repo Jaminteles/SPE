@@ -19,10 +19,13 @@ export function tokenDoLink(url: string | null | undefined): string | null {
     return null;
   }
 
-  const parametro = /[?&]t=([^&#]+)/.exec(url);
+  // O espaço em branco encerra a captura porque o texto colado quase nunca é só
+  // o link: chega como "Responda a pesquisa: <link> obrigado". Sem isso, o que
+  // vem depois do link entraria no token e derrubaria a validação.
+  const parametro = /[?&]t=([^&#\s]+)/.exec(url);
   const candidato = parametro
     ? decodeURIComponent(parametro[1])
-    : (/\/r\/([^/?#]+)/.exec(url)?.[1] ?? '');
+    : (/\/r\/([^/?#\s]+)/.exec(url)?.[1] ?? '');
 
   return TOKEN.test(candidato) ? candidato : null;
 }

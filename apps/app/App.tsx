@@ -35,8 +35,13 @@ export default function App() {
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [rota, setRota] = useState<Rota>({ tela: 'inicio' });
-  /** A coleta não exige conta: vive fora da área autenticada. */
-  const [respondendo, setRespondendo] = useState(false);
+  /**
+   * A área de conta é a porta secundária.
+   *
+   * A coleta virou a tela raiz: é o que a maioria de quem abre o app vem fazer,
+   * e não exige conta nenhuma. Só quem monta pesquisa passa por aqui.
+   */
+  const [naArea, setNaArea] = useState(false);
   /** Token vindo do link de coleta: pula a digitação do código na abertura. */
   const [tokenDoLinkAberto, setTokenDoLinkAberto] = useState<string | null>(null);
   /** Verificação de versão na abertura — o substituto da atualização da loja. */
@@ -78,7 +83,8 @@ export default function App() {
       const token = tokenDoLink(url);
       if (ativo && token) {
         setTokenDoLinkAberto(token);
-        setRespondendo(true);
+        // Link de coleta tira de onde estiver e leva para a pesquisa.
+        setNaArea(false);
       }
     };
 
@@ -121,6 +127,8 @@ export default function App() {
     await servicoAuth.sair();
     setRota({ tela: 'inicio' });
     setUsuario(null);
+    // Sair da conta devolve à raiz, que agora é a coleta.
+    setNaArea(false);
   }, []);
 
   /** Sessão morreu no servidor: volta para o login sem tentar mais nada. */
@@ -129,11 +137,16 @@ export default function App() {
     setUsuario(null);
   }, []);
 
-  /** Sair da coleta descarta o token do link: reabrir volta a pedir o código. */
-  const sairDaColeta = useCallback(() => {
+  /**
+   * Ir para a área de conta descarta o token do link: voltar para a coleta
+   * depois disso deve pedir o link de novo, não reabrir a pesquisa anterior.
+   */
+  const abrirAreaDeConta = useCallback(() => {
     setTokenDoLinkAberto(null);
-    setRespondendo(false);
+    setNaArea(true);
   }, []);
+
+  const voltarParaColeta = useCallback(() => setNaArea(false), []);
 
   const voltarParaInicio = useCallback(() => setRota({ tela: 'inicio' }), []);
   const voltarParaFormularios = useCallback(() => setRota({ tela: 'formularios' }), []);
@@ -163,11 +176,14 @@ export default function App() {
     );
   }
 
-  if (respondendo) {
+  // A coleta é a raiz. Quem já tem sessão vai direto para a área autenticada:
+  // seria estranho a pessoa que entrou ontem reabrir o app na tela de colar
+  // link. Sem sessão, a coleta só dá lugar ao login se ela pedir.
+  if (!usuario && !naArea) {
     return (
       <View style={estilos.raiz}>
-        <LimiteDeErro aoVoltar={sairDaColeta}>
-          <FluxoDeColeta tokenInicial={tokenDoLinkAberto} aoSair={sairDaColeta} />
+        <LimiteDeErro aoVoltar={abrirAreaDeConta}>
+          <FluxoDeColeta tokenInicial={tokenDoLinkAberto} aoAbrirConta={abrirAreaDeConta} />
         </LimiteDeErro>
         <StatusBar style="auto" />
       </View>
@@ -177,7 +193,11 @@ export default function App() {
   if (!usuario) {
     return (
       <View style={estilos.raiz}>
-        <TelaLogin aoEntrar={entrar} aoResponderPesquisa={() => setRespondendo(true)} />
+        <TelaLogin
+          aoEntrar={entrar}
+          aoVoltar={voltarParaColeta}
+          cadastroAberto={versao?.publicada?.cadastroAberto ?? false}
+        />
         <StatusBar style="auto" />
       </View>
     );

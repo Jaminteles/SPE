@@ -19,6 +19,7 @@ import { Filtros } from '../componentes/Filtros';
 import { GraficoDeBarras, GraficoDeEvolucao, GraficoDePizza } from '../componentes/Graficos';
 import { Indicadores } from '../componentes/Indicadores';
 import { TabelaDeMunicipios } from '../componentes/TabelaDeMunicipios';
+import { Usuarios } from '../componentes/Usuarios';
 import { SessaoEncerrada, UsuarioLogado } from '../auth/sessao';
 
 export interface ConfiguracaoDeImpressao {
@@ -209,8 +210,9 @@ export function Painel({ usuario, aoSair, aoPerderSessao, impressao }: Props) {
         <div className="cartao">
           <h2>Nenhuma pesquisa publicada</h2>
           <p className="aviso">
-            O resultado aparece aqui assim que uma pesquisa for publicada e começar a receber
-            respostas.
+            {usuario.perfil === 'PESQUISADOR'
+              ? 'O resultado das suas pesquisas aparece aqui assim que você publicar uma e ela começar a receber respostas. Pesquisa de outra conta não aparece nesta lista.'
+              : 'O resultado aparece aqui assim que uma pesquisa for publicada e começar a receber respostas.'}
           </p>
         </div>
       ) : null}
@@ -293,6 +295,11 @@ export function Painel({ usuario, aoSair, aoPerderSessao, impressao }: Props) {
       ) : null}
 
       {carregando ? <p className="aviso">Carregando…</p> : null}
+
+      {/* Fora da impressão: o PDF é de resultado, não traz administração. */}
+      {!impressao && usuario.perfil === 'ADMINISTRADOR' ? (
+        <Usuarios usuario={usuario} aoPerderSessao={aoPerderSessao} />
+      ) : null}
     </div>
   );
 }

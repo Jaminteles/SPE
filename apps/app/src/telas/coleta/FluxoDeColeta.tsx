@@ -38,7 +38,11 @@ type Etapa =
   | 'pendente';
 
 interface Props {
-  aoSair: () => void;
+  /**
+   * Sair da coleta. Como esta virou a tela raiz do aplicativo, sair daqui
+   * significa ir para a area de conta — nao ha mais 'para tras' que isso.
+   */
+  aoAbrirConta: () => void;
   /** Token trazido pelo link de coleta, quando a entrada veio de fora do app. */
   tokenInicial?: string | null;
 }
@@ -51,7 +55,7 @@ interface Props {
  * preenchimento não perde nada: ao reabrir a mesma pesquisa, o rascunho é
  * retomado no ponto em que parou.
  */
-export function FluxoDeColeta({ aoSair, tokenInicial }: Props) {
+export function FluxoDeColeta({ aoAbrirConta, tokenInicial }: Props) {
   const [etapa, setEtapa] = useState<Etapa>('abertura');
   const [formulario, setFormulario] = useState<FormularioPublico | null>(null);
   const [respostaId, setRespostaId] = useState<string | null>(null);
@@ -327,7 +331,7 @@ export function FluxoDeColeta({ aoSair, tokenInicial }: Props) {
     return (
       <TelaAbertura
         aoAbrir={(token) => void abrir(token)}
-        aoVoltar={aoSair}
+        aoAbrirConta={aoAbrirConta}
         carregando={carregando}
         erro={erro}
         pendentes={pendentes}

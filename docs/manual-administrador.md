@@ -104,12 +104,28 @@ agregados: nenhuma resposta individual.
 
 ## 7. Usuários e permissões
 
-**Usuários** (rota de administração): criar, desativar e trocar perfil.
+O bloco **Usuários**, no fim do painel web, só aparece para o Administrador. Ali se cria conta,
+troca perfil, desativa e redefine senha.
 
-- crie contas **Analista** para quem só precisa ler resultado;
+| Perfil | Pode | Enxerga |
+|---|---|---|
+| Administrador | tudo, inclusive gerenciar contas | todas as pesquisas |
+| Analista | só ler resultado e exportar | todas as pesquisas |
+| Pesquisador | montar e acompanhar as próprias pesquisas | **só as próprias** |
+
+- crie contas **Analista** para quem só precisa ler resultado da equipe;
+- crie contas **Pesquisador** para quem toca a própria pesquisa e não deve ver a dos outros;
 - desative quem saiu da equipe — desativar encerra as sessões abertas;
-- senha forte é exigida na criação;
+- senha forte é exigida: 12 caracteres, com maiúscula, minúscula e número;
+- a senha **não aparece na tela depois de criada**, nem para você. Passe-a por um caminho
+  seguro; esquecida, o caminho é redefinir, não recuperar;
 - criação, alteração de perfil e desativação ficam auditadas.
+
+Você não desativa a própria conta nem troca o próprio perfil — a API recusa, e o painel nem
+oferece o botão. É o que impede o sistema de ficar sem nenhum administrador.
+
+Se a instalação tiver **cadastro aberto** (`CADASTRO_ABERTO`), qualquer pessoa cria a própria
+conta de Pesquisador confirmando o e-mail, sem passar por você.
 
 Não compartilhe conta. Auditoria só serve se o nome no log for o de quem agiu.
 

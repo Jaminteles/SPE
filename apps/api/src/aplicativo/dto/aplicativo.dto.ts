@@ -31,4 +31,11 @@ export class VersaoDoAplicativoResponse {
 
   @ApiProperty({ description: 'O que mudou nesta versão.', nullable: true })
   notas!: string | null;
+
+  @ApiProperty({
+    description:
+      'Se esta instalação aceita auto-cadastro. O aplicativo usa isto para decidir se ' +
+      'oferece "Registrar-se" — botão que sempre falha é pior que botão ausente.',
+  })
+  cadastroAberto!: boolean;
 }
