@@ -137,6 +137,28 @@ export class FormulariosRepository {
     return { itens: brutos.map((bruto) => this.projetarResumo(bruto)), total };
   }
 
+  /**
+   * Quantas pesquisas do **dono desta** já estão em coleta.
+   *
+   * Conta pelo dono do formulário, não por quem está publicando: o
+   * Administrador pode publicar a pesquisa de outra pessoa, e a cota é da conta
+   * que criou, não de quem apertou o botão.
+   *
+   * Pesquisa órfã — de conta apagada — não consome cota de ninguém.
+   */
+  async contarEmColetaDoMesmoDono(formularioId: string): Promise<number> {
+    const alvo = await this.prisma.formulario.findUnique({
+      where: { id: formularioId },
+      select: { criadoPorId: true },
+    });
+    if (!alvo?.criadoPorId) {
+      return 0;
+    }
+    return this.prisma.formulario.count({
+      where: { criadoPorId: alvo.criadoPorId, status: FormularioStatus.EM_COLETA },
+    });
+  }
+
   /** Uma consulta traz formulário, perguntas e alternativas: nada de N+1. */
   async buscarCompleto(id: string): Promise<FormularioCompleto | null> {
     const bruto = await this.prisma.formulario.findUnique({

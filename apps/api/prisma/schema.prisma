@@ -313,6 +313,9 @@ model Resposta {
   @@index([recebidoEm])
   @@index([formularioId, duracaoSegundos])
   @@index([marcacoes], map: "ix_resposta_marcacoes", type: Gin)
+  /// Serve ao teto por aparelho. Parcial no banco (hash nao nulo); o Prisma nao
+  /// descreve indice parcial, entao a migration e quem manda aqui.
+  @@index([dispositivoHash, recebidoEm], map: "ix_resposta_dispositivo_recebido")
   @@map("resposta")
 }
 

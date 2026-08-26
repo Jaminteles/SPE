@@ -129,6 +129,19 @@ export class ColetaRepository {
   }
 
   /**
+   * Quantas respostas este aparelho já mandou desde `desde`.
+   *
+   * Conta sobre a tabela de respostas, e não sobre um contador em memória, de
+   * propósito: reinício da API ou segunda instância zerariam o contador em
+   * memória, e o teto viraria decoração. Aqui o número é o que aconteceu.
+   */
+  async contarRespostasDoDispositivo(dispositivoHash: string, desde: Date): Promise<number> {
+    return this.prisma.resposta.count({
+      where: { dispositivoHash, recebidoEm: { gte: desde } },
+    });
+  }
+
+  /**
    * Grava resposta e itens em uma transação. O hash do dispositivo chega pronto:
    * o valor em claro não passa por esta camada.
    */

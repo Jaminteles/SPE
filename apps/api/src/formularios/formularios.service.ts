@@ -41,6 +41,9 @@ const TIPOS_COM_ALTERNATIVA: PerguntaTipo[] = [
 
 @Injectable()
 export class FormulariosService {
+  /** Teto de pesquisas simultaneamente em coleta por conta. Configuravel. */
+  private static readonly LIMITE_EM_COLETA_PADRAO = 10;
+
   constructor(
     private readonly repositorio: FormulariosRepository,
     private readonly auditoria: AuditoriaService,
@@ -146,6 +149,8 @@ export class FormulariosService {
       throw new BadRequestException(problemas);
     }
 
+    await this.exigirCotaDeColeta(id);
+
     const trocados = await this.repositorio.trocarStatus(
       id,
       FormularioStatus.RASCUNHO,
@@ -199,6 +204,31 @@ export class FormulariosService {
     await this.expurgo.aoEncerrarColeta(id);
 
     return this.exigirResumo(id);
+  }
+
+  /**
+   * Cota de pesquisas simultaneamente em coleta, por conta.
+   *
+   * Conferida na publicação, que é o momento em que uma pesquisa passa a
+   * consumir recurso de verdade: link vivo, sessões abertas, respostas
+   * chegando. Rascunho não custa nada e por isso não entra na conta.
+   *
+   * Encerrar uma pesquisa devolve a vaga — o teto é de simultâneas, não de
+   * total já publicado.
+   */
+  private async exigirCotaDeColeta(id: string): Promise<void> {
+    const teto = this.config.get<number>(
+      'LIMITE_PESQUISAS_EM_COLETA',
+      FormulariosService.LIMITE_EM_COLETA_PADRAO,
+    );
+
+    const emColeta = await this.repositorio.contarEmColetaDoMesmoDono(id);
+    if (emColeta >= teto) {
+      throw new ConflictException(
+        `Esta conta já tem ${emColeta} pesquisas em coleta, o máximo permitido. ` +
+          'Encerre uma para publicar outra.',
+      );
+    }
   }
 
   private async exigirResumo(id: string): Promise<FormularioResumo> {

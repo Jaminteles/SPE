@@ -126,6 +126,38 @@ O app decide o que mostrar; o servidor **confere tudo de novo**:
 - nenhuma resposta em pergunta que a condição não habilitou;
 - datas declaradas sem absurdo (nada no futuro, coleta não anterior ao aceite).
 
+## Teto de respostas por aparelho
+
+Um aparelho envia no máximo **10 respostas por hora**
+(`COLETA_LIMITE_POR_APARELHO_HORA`). Estourado o teto, a rota responde **429** e não grava.
+
+Isto é diferente das marcações automáticas. Marcação é suspeita sobre uma resposta e quem
+julga é o Administrador — ela nunca descarta nada. Teto é limite de uso da instalação, e
+julgar caso a caso seria tarde demais: o custo do abuso já teria sido pago.
+
+A contagem sai da tabela de respostas, filtrada pelo hash do aparelho, e não de um contador
+em memória — reinício da API ou uma segunda instância zerariam o contador, e o teto viraria
+decoração. O índice parcial `ix_resposta_dispositivo_recebido` cobre exatamente esse filtro.
+
+Por aparelho e não por IP: o IP muda a cada troca de rede e é compartilhado por todo mundo
+atrás do mesmo NAT — uma escola inteira sairia pelo mesmo endereço. O rate limit por origem
+continua existindo, na frente, como primeira barreira.
+
+O reenvio do mesmo pacote **não** consome vaga: a idempotência é conferida antes do teto, e
+quem já gravou está pedindo o recibo de novo, não gastando um envio novo.
+
+## Teto de pesquisas em coleta
+
+Cada conta tem no máximo **10 pesquisas simultaneamente em coleta**
+(`LIMITE_PESQUISAS_EM_COLETA`), conferido na publicação — o momento em que a pesquisa passa a
+consumir recurso de verdade: link vivo, sessões abertas, respostas chegando. Rascunho não
+custa nada e não entra na conta.
+
+A cota é do **dono** da pesquisa, não de quem aperta o botão: o Administrador pode publicar a
+pesquisa de outra pessoa, e isso consome a cota de quem criou.
+
+Encerrar devolve a vaga — o teto é de simultâneas, não de total já publicado.
+
 ## Verificação anti-robô
 
 Está em task própria (Cloudflare Turnstile) e ainda não entrou. Até lá, a rota

@@ -1,9 +1,12 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   FormularioStatus,
   PerguntaTipo,
@@ -30,12 +33,16 @@ const UF_DA_PESQUISA = 'BA';
 
 @Injectable()
 export class ColetaService {
+  /** Dez por hora: teto de uso, não de qualidade. Configurável por instalação. */
+  private static readonly LIMITE_POR_APARELHO_HORA_PADRAO = 10;
+
   constructor(
     private readonly repositorio: ColetaRepository,
     private readonly dispositivos: DispositivoService,
     private readonly sessoes: SessaoColetaService,
     private readonly antiRobo: ProvedorAntiRobo,
     private readonly analise: AnaliseDeSuspeitaService,
+    private readonly config: ConfigService,
   ) {}
 
   /**
@@ -70,6 +77,12 @@ export class ColetaService {
     if (jaGravada) {
       return jaGravada;
     }
+
+    // O hash do aparelho é o mesmo que vai gravado na resposta: contar por ele
+    // é contar exatamente o que já aconteceu, sem depender do IP — que muda a
+    // cada troca de rede e é compartilhado por todo mundo atrás do mesmo NAT.
+    const dispositivoHash = this.dispositivos.gerarHash(dto.dispositivoId);
+    await this.exigirDentroDoTetoDoAparelho(dispositivoHash);
 
     await this.exigirDesafioAntiRobo(dto, ip);
 
@@ -122,7 +135,7 @@ export class ColetaService {
         status:
           suspeita.marcacoes.length > 0 ? RespostaStatus.EM_CONFERENCIA : RespostaStatus.VALIDA,
         origem: dto.origem ?? RespostaOrigem.APLICATIVO,
-        dispositivoHash: this.dispositivos.gerarHash(dto.dispositivoId),
+        dispositivoHash,
         consentimentoEm: dto.consentimentoEm,
         iniciadoEm: sessao.iniciadaEm,
         coletadoEm: dto.coletadoEm,
@@ -135,6 +148,37 @@ export class ColetaService {
       });
     } catch (erro) {
       return this.traduzirFalhaDeGravacao(erro, dto.respostaId);
+    }
+  }
+
+  /**
+   * Teto de respostas por aparelho numa janela de tempo.
+   *
+   * Diferente das marcações automáticas, que mandam para conferência humana
+   * sem barrar nada, este teto **recusa** o envio. São coisas de natureza
+   * diferente: marcação é suspeita sobre uma resposta, e quem julga é o
+   * Administrador; teto é limite de uso da instalação, e julgar cada caso
+   * seria tarde demais — o custo do abuso já teria sido pago.
+   *
+   * O respondente legítimo não encosta nisso: são dez pesquisas respondidas
+   * na mesma hora, no mesmo aparelho.
+   */
+  private async exigirDentroDoTetoDoAparelho(dispositivoHash: string): Promise<void> {
+    const teto = this.config.get<number>(
+      'COLETA_LIMITE_POR_APARELHO_HORA',
+      ColetaService.LIMITE_POR_APARELHO_HORA_PADRAO,
+    );
+
+    const desde = new Date(Date.now() - 60 * 60 * 1000);
+    const jaEnviadas = await this.repositorio.contarRespostasDoDispositivo(dispositivoHash, desde);
+
+    if (jaEnviadas >= teto) {
+      // 429 e não 403: não é falta de permissão, é excesso de uso, e a
+      // diferença importa para quem lê o erro do outro lado.
+      throw new HttpException(
+        'Este aparelho já enviou o máximo de respostas por hora. Tente mais tarde.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
   }
 

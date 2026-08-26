@@ -15,6 +15,7 @@ describe('FormulariosService', () => {
 
   const repositorio = {
     listar: jest.fn(),
+    contarEmColetaDoMesmoDono: jest.fn(),
     buscarCompleto: jest.fn(),
     buscarResumo: jest.fn(),
     buscarSituacao: jest.fn(),
@@ -41,7 +42,7 @@ describe('FormulariosService', () => {
   const auditoria = { registrar: jest.fn() };
   const qrCode = { gerarSvg: jest.fn() };
   const expurgo = { aoEncerrarColeta: jest.fn() };
-  const config = { get: jest.fn((_chave: string, padrao: string) => padrao) };
+  const config = { get: jest.fn((_chave: string, padrao: unknown) => padrao) };
 
   const rascunho = { id: 'form-1', status: FormularioStatus.RASCUNHO, titulo: 'Pesquisa' };
   const publicado = { id: 'form-1', status: FormularioStatus.EM_COLETA, titulo: 'Pesquisa' };
@@ -87,9 +88,10 @@ describe('FormulariosService', () => {
   beforeEach(async () => {
     jest.resetAllMocks();
     repositorio.buscarResumo.mockImplementation(async () => formularioCompleto([]));
+    repositorio.contarEmColetaDoMesmoDono.mockResolvedValue(0);
     repositorio.listarDependentesDePergunta.mockResolvedValue([]);
     repositorio.listarDependentesDeAlternativa.mockResolvedValue([]);
-    config.get.mockImplementation((_chave: string, padrao: string) => padrao);
+    config.get.mockImplementation((_chave: string, padrao: unknown) => padrao);
     const modulo = await Test.createTestingModule({
       providers: [
         FormulariosService,
@@ -181,6 +183,44 @@ describe('FormulariosService', () => {
       repositorio.buscarCompleto.mockResolvedValue(
         formularioCompleto([pergunta()], FormularioStatus.EM_COLETA),
       );
+
+      await expect(servico.publicar('form-1', 'admin')).rejects.toBeInstanceOf(ConflictException);
+    });
+
+    it('recusa publicar quando a conta já bateu a cota de pesquisas em coleta', async () => {
+      repositorio.buscarCompleto.mockResolvedValue(formularioCompleto([pergunta()]));
+      repositorio.contarEmColetaDoMesmoDono.mockResolvedValue(10);
+
+      await expect(servico.publicar('form-1', 'admin')).rejects.toBeInstanceOf(ConflictException);
+      expect(repositorio.trocarStatus).not.toHaveBeenCalled();
+    });
+
+    it('publica na última vaga da cota', async () => {
+      repositorio.buscarCompleto.mockResolvedValue(formularioCompleto([pergunta()]));
+      repositorio.contarEmColetaDoMesmoDono.mockResolvedValue(9);
+      repositorio.trocarStatus.mockResolvedValue(1);
+
+      await servico.publicar('form-1', 'admin');
+      expect(repositorio.trocarStatus).toHaveBeenCalled();
+    });
+
+    it('confere a cota só depois do conteúdo, para o erro útil vir primeiro', async () => {
+      // Formulário incompleto e cota estourada ao mesmo tempo: quem publica
+      // precisa saber que faltam perguntas, não que a cota acabou — arrumar a
+      // cota não faria o formulário passar.
+      repositorio.buscarCompleto.mockResolvedValue(formularioCompleto([]));
+      repositorio.contarEmColetaDoMesmoDono.mockResolvedValue(99);
+
+      await expect(servico.publicar('form-1', 'admin')).rejects.toBeInstanceOf(BadRequestException);
+      expect(repositorio.contarEmColetaDoMesmoDono).not.toHaveBeenCalled();
+    });
+
+    it('respeita a cota configurada', async () => {
+      config.get.mockImplementation((chave: string, padrao?: unknown) =>
+        chave === 'LIMITE_PESQUISAS_EM_COLETA' ? 2 : padrao,
+      );
+      repositorio.buscarCompleto.mockResolvedValue(formularioCompleto([pergunta()]));
+      repositorio.contarEmColetaDoMesmoDono.mockResolvedValue(2);
 
       await expect(servico.publicar('form-1', 'admin')).rejects.toBeInstanceOf(ConflictException);
     });

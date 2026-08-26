@@ -1,4 +1,6 @@
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { HttpStatus } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { FormularioStatus, PerguntaTipo, RespostaOrigem, RespostaStatus } from '@prisma/client';
 
@@ -17,6 +19,7 @@ describe('ColetaService', () => {
     buscarPorToken: jest.fn(),
     municipioExiste: jest.fn(),
     buscarResposta: jest.fn(),
+    contarRespostasDoDispositivo: jest.fn(),
     gravar: jest.fn(),
   };
   const dispositivos = { gerarHash: jest.fn() };
@@ -28,6 +31,7 @@ describe('ColetaService', () => {
     exigirNoAplicativo: false,
   };
   const analise = { analisar: jest.fn(), janelaDaOrigemEmMinutos: 10 };
+  const config = { get: jest.fn((_chave: string, padrao?: unknown) => padrao) };
 
   const PERGUNTA_UNICA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
   const PERGUNTA_CONDICIONADA = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -118,6 +122,8 @@ describe('ColetaService', () => {
     repositorio.buscarPorToken.mockResolvedValue(formulario());
     repositorio.municipioExiste.mockResolvedValue({ codigoIbge: 2927408, uf: 'BA' });
     repositorio.buscarResposta.mockResolvedValue(null);
+    repositorio.contarRespostasDoDispositivo.mockResolvedValue(0);
+    config.get.mockImplementation((_chave: string, padrao?: unknown) => padrao);
     repositorio.gravar.mockImplementation(async () => ({
       id: '99999999-9999-4999-8999-999999999999',
       status: RespostaStatus.VALIDA,
@@ -148,6 +154,7 @@ describe('ColetaService', () => {
         { provide: SessaoColetaService, useValue: sessoes },
         { provide: ProvedorAntiRobo, useValue: antiRobo },
         { provide: AnaliseDeSuspeitaService, useValue: analise },
+        { provide: ConfigService, useValue: config },
       ],
     }).compile();
     servico = modulo.get(ColetaService);
@@ -387,6 +394,65 @@ describe('ColetaService', () => {
           ]),
         ),
       ).rejects.toThrow('obrigatória');
+    });
+  });
+
+  describe('teto por aparelho', () => {
+    const enviarPadrao = () =>
+      servico.enviar('token-de-teste', '203.0.113.10', envio(respostaValida));
+
+    it('recusa com 429 quando o aparelho já bateu o teto na hora', async () => {
+      repositorio.contarRespostasDoDispositivo.mockResolvedValue(10);
+
+      await expect(enviarPadrao()).rejects.toMatchObject({
+        status: HttpStatus.TOO_MANY_REQUESTS,
+      });
+      expect(repositorio.gravar).not.toHaveBeenCalled();
+    });
+
+    it('deixa passar exatamente na última vaga', async () => {
+      repositorio.contarRespostasDoDispositivo.mockResolvedValue(9);
+
+      await enviarPadrao();
+      expect(repositorio.gravar).toHaveBeenCalled();
+    });
+
+    it('não barra reenvio do mesmo pacote, mesmo estourado', async () => {
+      // A idempotência vem antes do teto: quem já gravou está pedindo o recibo
+      // de novo, não gastando uma vaga nova.
+      repositorio.contarRespostasDoDispositivo.mockResolvedValue(999);
+      repositorio.buscarResposta.mockResolvedValue({
+        id: 'ja-existe',
+        status: RespostaStatus.VALIDA,
+        origem: RespostaOrigem.APLICATIVO,
+        recebidoEm: new Date(),
+      });
+
+      await expect(enviarPadrao()).resolves.toMatchObject({ id: 'ja-existe' });
+      expect(repositorio.contarRespostasDoDispositivo).not.toHaveBeenCalled();
+    });
+
+    it('conta numa janela de uma hora', async () => {
+      repositorio.contarRespostasDoDispositivo.mockResolvedValue(0);
+      const antes = Date.now();
+
+      await enviarPadrao();
+
+      const [, desde] = repositorio.contarRespostasDoDispositivo.mock.calls[0];
+      const janelaMs = antes - (desde as Date).getTime();
+      expect(janelaMs).toBeGreaterThanOrEqual(60 * 60 * 1000 - 5_000);
+      expect(janelaMs).toBeLessThanOrEqual(60 * 60 * 1000 + 5_000);
+    });
+
+    it('respeita o teto configurado', async () => {
+      config.get.mockImplementation((chave: string, padrao?: unknown) =>
+        chave === 'COLETA_LIMITE_POR_APARELHO_HORA' ? 3 : padrao,
+      );
+      repositorio.contarRespostasDoDispositivo.mockResolvedValue(3);
+
+      await expect(enviarPadrao()).rejects.toMatchObject({
+        status: HttpStatus.TOO_MANY_REQUESTS,
+      });
     });
   });
 });

@@ -40,6 +40,8 @@ export interface AppEnv {
   EMAIL_REMETENTE: string;
   EMAIL_REMETENTE_NOME: string;
   CONFIRMACAO_EMAIL_TTL_HORAS: number;
+  COLETA_LIMITE_POR_APARELHO_HORA: number;
+  LIMITE_PESQUISAS_EM_COLETA: number;
 }
 
 const AMBIENTES = ['development', 'test', 'production'] as const;
@@ -197,6 +199,20 @@ export function validarAmbiente(bruto: Record<string, unknown>): AppEnv {
       bruto.CONFIRMACAO_EMAIL_TTL_HORAS as string | undefined,
       24,
       'CONFIRMACAO_EMAIL_TTL_HORAS',
+    ),
+    // Teto de respostas por aparelho por hora. Recusa o envio, ao contrario das
+    // marcacoes automaticas, que so mandam para conferencia humana.
+    COLETA_LIMITE_POR_APARELHO_HORA: inteiro(
+      bruto.COLETA_LIMITE_POR_APARELHO_HORA as string | undefined,
+      10,
+      'COLETA_LIMITE_POR_APARELHO_HORA',
+    ),
+    // Pesquisas simultaneamente em coleta por conta. Rascunho nao conta;
+    // encerrar devolve a vaga.
+    LIMITE_PESQUISAS_EM_COLETA: inteiro(
+      bruto.LIMITE_PESQUISAS_EM_COLETA as string | undefined,
+      10,
+      'LIMITE_PESQUISAS_EM_COLETA',
     ),
   };
 }
