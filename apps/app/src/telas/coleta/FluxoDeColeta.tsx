@@ -39,6 +39,8 @@ type Etapa =
 
 interface Props {
   aoSair: () => void;
+  /** Token trazido pelo link de coleta, quando a entrada veio de fora do app. */
+  tokenInicial?: string | null;
 }
 
 /**
@@ -49,7 +51,7 @@ interface Props {
  * preenchimento não perde nada: ao reabrir a mesma pesquisa, o rascunho é
  * retomado no ponto em que parou.
  */
-export function FluxoDeColeta({ aoSair }: Props) {
+export function FluxoDeColeta({ aoSair, tokenInicial }: Props) {
   const [etapa, setEtapa] = useState<Etapa>('abertura');
   const [formulario, setFormulario] = useState<FormularioPublico | null>(null);
   const [respostaId, setRespostaId] = useState<string | null>(null);
@@ -151,6 +153,17 @@ export function FluxoDeColeta({ aoSair }: Props) {
       setCarregando(false);
     }
   }, []);
+
+  /**
+   * Entrada pelo link: abre a pesquisa sem passar pela digitação do código.
+   * Se falhar, a tela de abertura aparece com o erro e o campo à mão — o link
+   * pode ter chegado truncado, e aí digitar o código é a saída.
+   */
+  useEffect(() => {
+    if (tokenInicial) {
+      void abrir(tokenInicial);
+    }
+  }, [tokenInicial, abrir]);
 
   async function aceitarConsentimento() {
     if (!formulario || !respostaId) {

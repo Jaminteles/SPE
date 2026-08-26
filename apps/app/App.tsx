@@ -1,8 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
 
 import { Diagnostico, servicoAtualizacao } from './src/atualizacao/servico-atualizacao';
+import { tokenDoLink } from './src/coleta/link-de-coleta';
 import { UsuarioLogado, servicoAuth } from './src/auth/servico-auth';
 import { TelaAtualizacao } from './src/telas/TelaAtualizacao';
 import { TelaFormulario } from './src/telas/admin/TelaFormulario';
@@ -36,6 +37,8 @@ export default function App() {
   const [rota, setRota] = useState<Rota>({ tela: 'inicio' });
   /** A coleta não exige conta: vive fora da área autenticada. */
   const [respondendo, setRespondendo] = useState(false);
+  /** Token vindo do link de coleta: pula a digitação do código na abertura. */
+  const [tokenDoLinkAberto, setTokenDoLinkAberto] = useState<string | null>(null);
   /** Verificação de versão na abertura — o substituto da atualização da loja. */
   const [versao, setVersao] = useState<Diagnostico | null>(null);
   const [avisoDispensado, setAvisoDispensado] = useState(false);
@@ -59,6 +62,32 @@ export default function App() {
 
     return () => {
       ativo = false;
+    };
+  }, []);
+
+  /**
+   * Link de coleta. Vale tanto o app fechado (`getInitialURL`) quanto o app já
+   * aberto em segundo plano (o evento): o entrevistador costuma tocar no link
+   * com o aplicativo ainda na memória, e só o `getInitialURL` deixaria esse
+   * caso sem resposta nenhuma.
+   */
+  useEffect(() => {
+    let ativo = true;
+
+    const aceitar = (url: string | null) => {
+      const token = tokenDoLink(url);
+      if (ativo && token) {
+        setTokenDoLinkAberto(token);
+        setRespondendo(true);
+      }
+    };
+
+    void Linking.getInitialURL().then(aceitar);
+    const assinatura = Linking.addEventListener('url', ({ url }) => aceitar(url));
+
+    return () => {
+      ativo = false;
+      assinatura.remove();
     };
   }, []);
 
@@ -100,6 +129,12 @@ export default function App() {
     setUsuario(null);
   }, []);
 
+  /** Sair da coleta descarta o token do link: reabrir volta a pedir o código. */
+  const sairDaColeta = useCallback(() => {
+    setTokenDoLinkAberto(null);
+    setRespondendo(false);
+  }, []);
+
   const voltarParaInicio = useCallback(() => setRota({ tela: 'inicio' }), []);
   const voltarParaFormularios = useCallback(() => setRota({ tela: 'formularios' }), []);
 
@@ -131,8 +166,8 @@ export default function App() {
   if (respondendo) {
     return (
       <View style={estilos.raiz}>
-        <LimiteDeErro aoVoltar={() => setRespondendo(false)}>
-          <FluxoDeColeta aoSair={() => setRespondendo(false)} />
+        <LimiteDeErro aoVoltar={sairDaColeta}>
+          <FluxoDeColeta tokenInicial={tokenDoLinkAberto} aoSair={sairDaColeta} />
         </LimiteDeErro>
         <StatusBar style="auto" />
       </View>

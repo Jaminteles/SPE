@@ -249,9 +249,17 @@ export class FormulariosService {
     return copia;
   }
 
+  /**
+   * O token vai na querystring, não no caminho.
+   *
+   * O painel é servido como arquivo estático puro, sem nada reescrevendo rota:
+   * `/r/<token>` seria um caminho que não existe em disco e devolvia 404 no
+   * navegador de quem recebeu o link. `r.html` é arquivo de verdade, do mesmo
+   * jeito que `download.html`.
+   */
   private montarUrlDeColeta(token: string): string {
     const base = this.config.get<string>('COLETA_BASE_URL', 'http://localhost:5173');
-    return `${base}/r/${token}`;
+    return `${base}/r.html?t=${token}`;
   }
 
   /** 22 caracteres aleatórios: curto para caber num QR pequeno, largo para não ser adivinhado. */

@@ -249,7 +249,7 @@ describe('FormulariosService (condição, acesso e duplicação)', () => {
 
       const acesso = await servico.acesso('form-1');
 
-      expect(acesso.url).toBe('https://pesquisa.exemplo.br/r/token-publico-de-teste');
+      expect(acesso.url).toBe('https://pesquisa.exemplo.br/r.html?t=token-publico-de-teste');
       expect(acesso.url).not.toContain('form-1');
       expect(acesso.qrCodeSvg).toBe('<svg></svg>');
       expect(qrCode.gerarSvg).toHaveBeenCalledWith(acesso.url);

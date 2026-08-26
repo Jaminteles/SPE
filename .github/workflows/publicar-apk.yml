@@ -67,6 +67,10 @@ jobs:
           # versionCode monotonico: o Android recusa instalar por cima de um
           # numero maior, e run_number nunca repete no repositorio.
           SPE_VERSION_CODE: ${{ github.run_number }}
+          # Host do App Link, gravado no AndroidManifest pelo app.config.js. Sem
+          # ela o APK sai sem o filtro e o link de coleta abre no navegador, que
+          # e o comportamento antigo — nao quebra nada, so perde o atalho.
+          SPE_PAINEL_URL: ${{ vars.SPE_PAINEL_URL }}
         run: npx expo prebuild --platform android --no-install --clean
 
       - name: Compilar o APK assinado
@@ -103,10 +107,19 @@ jobs:
             exit 1
           fi
 
+          # Impressao digital do certificado que assinou o APK. E o que vai no
+          # assetlinks.json do painel (SPE_APP_FINGERPRINT): sem ela batendo, o
+          # Android nao liga o App Link e o link de coleta abre no navegador.
+          # O apksigner imprime hexadecimal continuo e minusculo; o formato que
+          # o assetlinks.json espera e maiusculo, em pares separados por ":".
+          digito=$(grep -i 'certificate SHA-256 digest' assinatura.txt | head -1 | awk '{print $NF}')
+          impressao=$(echo "$digito" | tr 'a-z' 'A-Z' | sed 's/../&:/g; s/:$//')
+
           {
             echo "versao=$versao"
             echo "nome=$destino"
             echo "sha256=$(sha256sum "$destino" | cut -d' ' -f1)"
+            echo "impressao=$impressao"
           } >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
@@ -145,6 +158,8 @@ jobs:
           SHA256: ${{ steps.arquivo.outputs.sha256 }}
           VERSION_CODE: ${{ github.run_number }}
           API: ${{ vars.SPE_API_URL }}
+          PAINEL: ${{ vars.SPE_PAINEL_URL }}
+          IMPRESSAO: ${{ steps.arquivo.outputs.impressao }}
         run: |
           {
             printf '### APK gerado\n\n'
@@ -152,6 +167,13 @@ jobs:
             printf '| Arquivo | `%s` |\n' "$NOME"
             printf '| Versao | %s |\n' "$VERSAO"
             printf '| versionCode | %s |\n' "$VERSION_CODE"
-            printf '| SHA-256 | `%s` |\n' "$SHA256"
+            printf '| SHA-256 do arquivo | `%s` |\n' "$SHA256"
             printf '| API | `%s` |\n' "$API"
+            printf '| Painel (App Link) | `%s` |\n\n' "${PAINEL:-nao configurado}"
+
+            printf '#### Impressao digital da chave de assinatura\n\n'
+            printf 'E o valor de `SPE_APP_FINGERPRINT` no build do painel. Enquanto o painel\n'
+            printf 'publicado nao declarar exatamente esta impressao, o link de coleta abre no\n'
+            printf 'navegador em vez de abrir o aplicativo.\n\n'
+            printf '```\n%s\n```\n' "$IMPRESSAO"
           } >> "$GITHUB_STEP_SUMMARY"

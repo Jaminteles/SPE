@@ -160,6 +160,7 @@ Em Settings → Secrets and variables → Actions:
 | Nome | Valor |
 |---|---|
 | `SPE_API_URL` | `https://<sua-api>/api/v1` |
+| `SPE_PAINEL_URL` | a URL do painel — liga o App Link do link de coleta |
 
 **Secrets**:
 
@@ -200,6 +201,41 @@ Terminado o run, pegue o link do APK e o SHA-256 das notas do Release e preencha
 `APP_URL_APK`, `APP_APK_SHA256` e `APP_VERSAO_ATUAL` na API. Reinicie a API: a
 página de download passa a oferecer o arquivo.
 
+### O link de coleta abrindo o aplicativo direto
+
+O link que a pesquisa gera é `<painel>/r.html?t=<token>`. Aberto no navegador,
+ele mostra uma página com o botão `spe://`, o código para digitar e o caminho
+para instalar o aplicativo — isso funciona sempre, e é o que vale se você parar
+por aqui.
+
+Para o link abrir o aplicativo **direto**, sem passar pelo navegador, o Android
+exige provar que o mesmo dono controla o site e o APK. São duas pontas, e as
+duas precisam concordar:
+
+| Onde | Variável | Valor |
+|---|---|---|
+| GitHub Actions (Variables) | `SPE_PAINEL_URL` | a URL do painel |
+| Build do painel na Cloudflare | `SPE_APP_FINGERPRINT` | a impressão digital da chave de assinatura |
+
+A impressão digital sai do próprio workflow do APK: ao fim do run, o resumo
+traz um bloco **Impressao digital da chave de assinatura**, já no formato que o
+painel espera. É a chave que assinou aquele APK, não um valor que se inventa.
+
+A ordem importa, porque a verificação acontece na **instalação** do aplicativo:
+
+1. rode o workflow do APK com `SPE_PAINEL_URL` já configurada e copie a
+   impressão digital do resumo;
+2. cadastre `SPE_APP_FINGERPRINT` na Cloudflare e publique o painel de novo;
+3. confira que `<painel>/.well-known/assetlinks.json` responde com o JSON —
+   se der 404, o painel foi publicado sem a variável e o build avisou isso no
+   log;
+4. só então instale o APK no aparelho. Aparelho que já tinha o aplicativo
+   instalado antes do passo 3 precisa reinstalar: o Android não refaz a
+   verificação sozinho.
+
+Trocar a chave de assinatura invalida a impressão digital publicada. O link não
+quebra — volta a abrir no navegador, na página `r.html`.
+
 ## 5. Conferir a ponta a ponta
 
 1. abrir `<painel>/download` — precisa mostrar versão e hash, não
@@ -208,7 +244,10 @@ página de download passa a oferecer o arquivo.
 2. instalar o APK num aparelho e abrir — se fechar sozinho na abertura, o
    `SPE_API_URL` do build estava vazio ou em HTTP;
 3. responder uma pesquisa de teste e conferir se aparece no painel;
-4. conferir o hash antes de instalar, como a própria página instrui.
+4. conferir o hash antes de instalar, como a própria página instrui;
+5. tocar no link de coleta a partir de uma mensagem no próprio aparelho — com o
+   App Link ligado, ele abre o aplicativo já na pesquisa; sem ele, abre a página
+   `r.html`, e o botão "Abrir no aplicativo" faz o mesmo caminho.
 
 ## Custos que aparecem depois
 

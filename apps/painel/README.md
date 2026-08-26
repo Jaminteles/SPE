@@ -19,3 +19,15 @@ variável no painel da Cloudflare.
 
 Sem ela, o build não falha — o painel sai apontando para `http://localhost:3000`
 e só quebra quando alguém tenta entrar.
+
+`SPE_APP_FINGERPRINT` é a impressão digital SHA-256 da chave que assinou o APK,
+no formato `AA:BB:...` de 32 pares. Com ela, o build gera
+`/.well-known/assetlinks.json` e o link de coleta abre o aplicativo direto, sem
+passar pelo navegador. Sem ela, o arquivo não é gerado e o link abre a página
+`r.html` — que continua oferecendo o botão `spe://` e o código para digitar.
+
+Malformada, o build **falha**: um assetlinks.json com impressão digital errada
+não dá erro em lugar nenhum, o Android só ignora o App Link em silêncio.
+
+Onde a impressão digital aparece e em que ordem publicar as duas pontas:
+[publicacao.md](../../docs/publicacao.md#o-link-de-coleta-abrindo-o-aplicativo-direto).

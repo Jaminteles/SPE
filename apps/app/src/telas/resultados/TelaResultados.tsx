@@ -21,8 +21,10 @@ export function TelaResultados({ aoVoltar, aoAbrir, aoPerderSessao }: Props) {
   const carregar = useCallback(async () => {
     setErro(null);
     try {
-      const { formularios: lista } = await servicoResultados.listarFormularios();
-      setFormularios(lista);
+      const lista = await servicoResultados.listarFormularios();
+      // Resposta fora do formato esperado não pode derrubar a tela inteira:
+      // sem `Array.isArray`, um corpo inesperado estoura no `.map` do render.
+      setFormularios(Array.isArray(lista) ? lista : []);
     } catch (falha) {
       if (falha instanceof SessaoEncerrada) {
         aoPerderSessao();

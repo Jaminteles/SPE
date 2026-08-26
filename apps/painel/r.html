@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Responder a pesquisa</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fundo: #f5f7f9;
+        --superficie: #ffffff;
+        --texto: #16202a;
+        --suave: #5b6b7b;
+        --borda: #d7dee6;
+        --acao: #16202a;
+        --acao-texto: #ffffff;
+        --aviso: #a3231f;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fundo: #0e141a;
+          --superficie: #151d26;
+          --texto: #e8eef4;
+          --suave: #9fb0be;
+          --borda: #263340;
+          --acao: #e8eef4;
+          --acao-texto: #16202a;
+          --aviso: #ff8c86;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px 16px 48px;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        background: var(--fundo);
+        color: var(--texto);
+        line-height: 1.55;
+      }
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 26px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        font-size: 18px;
+        margin: 0 0 12px;
+      }
+      p.sub {
+        color: var(--suave);
+        margin: 0 0 24px;
+      }
+      section {
+        background: var(--superficie);
+        border: 1px solid var(--borda);
+        border-radius: 10px;
+        padding: 18px;
+        margin-bottom: 16px;
+      }
+      a.botao {
+        display: inline-block;
+        background: var(--acao);
+        color: var(--acao-texto);
+        text-decoration: none;
+        font-weight: 600;
+        padding: 12px 18px;
+        border-radius: 8px;
+      }
+      a.secundario {
+        background: transparent;
+        color: var(--texto);
+        border: 1px solid var(--borda);
+      }
+      .codigo {
+        display: block;
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        font-size: 20px;
+        letter-spacing: 1px;
+        overflow-wrap: anywhere;
+        background: var(--fundo);
+        border: 1px solid var(--borda);
+        border-radius: 6px;
+        padding: 12px;
+        margin: 6px 0 14px;
+      }
+      ol {
+        padding-left: 20px;
+        margin: 0;
+      }
+      ol li {
+        margin-bottom: 10px;
+      }
+      .alerta {
+        color: var(--aviso);
+        font-weight: 600;
+      }
+      .rodape {
+        color: var(--suave);
+        font-size: 14px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Responder a pesquisa</h1>
+      <p class="sub">
+        A coleta acontece dentro do aplicativo — inclusive sem internet no momento da entrevista.
+      </p>
+
+      <section id="invalido" hidden>
+        <h2>Link incompleto</h2>
+        <p>
+          <span class="alerta">Este endereço não traz o código da pesquisa.</span> Ele costuma se
+          perder quando o link é copiado pela metade ou quebrado em duas linhas na mensagem. Peça o
+          link inteiro a quem o enviou.
+        </p>
+      </section>
+
+      <div id="valido" hidden>
+        <section>
+          <h2>1. Abrir no aplicativo</h2>
+          <p class="rodape">
+            Se o aplicativo já estiver instalado neste aparelho, o botão abre a pesquisa direto.
+          </p>
+          <p><a id="abrir" class="botao" href="#">Abrir no aplicativo</a></p>
+        </section>
+
+        <section>
+          <h2>2. Se o botão não abrir nada</h2>
+          <p>
+            Abra o aplicativo, toque em <strong>Responder uma pesquisa</strong> e digite o código
+            abaixo:
+          </p>
+          <code class="codigo" id="codigo">—</code>
+          <p><a id="copiar" class="botao secundario" href="#">Copiar o código</a></p>
+        </section>
+
+        <section>
+          <h2>3. Ainda não tem o aplicativo</h2>
+          <p>
+            O aplicativo é instalado por APK, fora da loja. A página de instalação traz o arquivo e
+            o código de conferência.
+          </p>
+          <p><a class="botao secundario" href="/download.html">Instalar o aplicativo</a></p>
+        </section>
+      </div>
+
+      <p class="rodape">
+        Esta pesquisa é <strong>anônima</strong>: não pede nome, CPF, telefone nem e-mail de quem
+        responde.
+      </p>
+    </main>
+
+    <script>
+      // O código da pesquisa vem na querystring, não no caminho: o painel é
+      // servido como arquivo estático puro, sem nada reescrevendo rota, e um
+      // caminho inventado devolveria 404 antes de esta página existir.
+      const TAMANHO_DO_TOKEN = 22;
+      const token = (new URLSearchParams(location.search).get('t') || '').trim();
+
+      // Formato conferido aqui só para não mandar o respondente digitar lixo:
+      // quem valida de verdade é a API, na abertura.
+      const valido = /^[A-Za-z0-9_-]{22}$/.test(token) && token.length === TAMANHO_DO_TOKEN;
+
+      document.getElementById(valido ? 'valido' : 'invalido').hidden = false;
+
+      if (valido) {
+        document.getElementById('codigo').textContent = token;
+        document.getElementById('abrir').href = 'spe://responder?t=' + encodeURIComponent(token);
+
+        const copiar = document.getElementById('copiar');
+        copiar.addEventListener('click', (evento) => {
+          evento.preventDefault();
+          navigator.clipboard.writeText(token).then(
+            () => {
+              copiar.textContent = 'Código copiado';
+            },
+            () => {
+              // Sem permissão de área de transferência o código continua na
+              // tela, selecionável: nada se perde.
+              copiar.textContent = 'Copie o código acima';
+            },
+          );
+        });
+      }
+    </script>
+  </body>
+</html>

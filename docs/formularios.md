@@ -83,8 +83,15 @@ texto ou número. Isso é deliberado.
 ## Link de acesso e QR Code
 
 A publicação gera um `tokenPublico` de 22 caracteres aleatórios. O link é
-`{COLETA_BASE_URL}/r/{token}` — o uuid interno **nunca** aparece na URL, então não há como
-enumerar pesquisa trocando um valor.
+`{COLETA_BASE_URL}/r.html?t={token}` — o uuid interno **nunca** aparece na URL, então não há
+como enumerar pesquisa trocando um valor.
+
+O token vai na querystring porque o painel é servido como arquivo estático puro: `r.html` é
+arquivo de verdade, e `/r/{token}` seria um caminho inexistente devolvendo 404 na cara de quem
+recebeu o link. A página não fala com a API — abrir a pesquisa consome uma sessão de
+preenchimento de uso único, e isso é papel do aplicativo. Ela só oferece três coisas: o botão
+`spe://responder?t={token}`, que cai direto no fluxo de coleta; o código, para digitar quando o
+aparelho não reconhece o esquema; e o caminho para instalar o aplicativo.
 
 `GET /formularios/:id/acesso` devolve `url`, `token` e `qrCodeSvg`. O QR é gerado pela
 biblioteca `qrcode`, isolada atrás de `ProvedorQrCode`: processamento local, sem rede e

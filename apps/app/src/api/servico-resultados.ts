@@ -69,7 +69,12 @@ function comFiltro(caminho: string, filtro?: FiltroDeResultado): string {
 }
 
 export const servicoResultados = {
-  listarFormularios(): Promise<{ formularios: FormularioComResultado[] }> {
+  /**
+   * A rota devolve o array cru, sem envelope — é o mesmo formato que o painel
+   * consome. Envolver aqui deixava o app lendo `{ formularios: ... }` de uma
+   * resposta que nunca teve essa chave, e a lista quebrava no primeiro render.
+   */
+  listarFormularios(): Promise<FormularioComResultado[]> {
     return chamarComSessao('/resultados/formularios');
   },
 
