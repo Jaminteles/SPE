@@ -6,6 +6,8 @@ import { AuditoriaModule } from '../auditoria/auditoria.module';
 import { UsuariosModule } from '../usuarios/usuarios.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { CadastroService } from './cadastro.service';
+import { ProvedorDeEmail } from './email.provider';
 import { SenhaService } from './senha.service';
 import { SessaoService } from './sessao.service';
 
@@ -25,7 +27,7 @@ import { SessaoService } from './sessao.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, SenhaService, SessaoService],
+  providers: [AuthService, CadastroService, ProvedorDeEmail, SenhaService, SessaoService],
   exports: [AuthService, SenhaService, SessaoService, JwtModule],
 })
 export class AuthModule {}

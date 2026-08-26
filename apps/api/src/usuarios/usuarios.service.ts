@@ -59,6 +59,10 @@ export class UsuariosService {
         email: dto.email,
         senhaHash,
         perfil: dto.perfil,
+        // Nasce confirmada: quem cria é um Administrador, que digitou o e-mail
+        // e entrega a senha em mãos. Esta rota não envia e-mail nenhum, então
+        // deixar pendente trancaria a conta sem caminho de volta.
+        emailConfirmadoEm: new Date(),
       });
     } catch (erro) {
       throw this.traduzirErroDePrisma(erro);

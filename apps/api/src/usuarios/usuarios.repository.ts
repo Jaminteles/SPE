@@ -19,6 +19,8 @@ export interface CredencialUsuario {
   id: string;
   senhaHash: string;
   ativo: boolean;
+  /** `null` enquanto a posse do e-mail não foi provada: o login recusa. */
+  emailConfirmadoEm: Date | null;
   perfil: PerfilCodigo;
 }
 
@@ -92,7 +94,13 @@ export class UsuariosRepository {
   async buscarCredencialPorEmail(email: string): Promise<CredencialUsuario | null> {
     const bruto = await this.prisma.usuario.findUnique({
       where: { email: UsuariosRepository.normalizarEmail(email) },
-      select: { id: true, senhaHash: true, ativo: true, perfil: { select: { codigo: true } } },
+      select: {
+        id: true,
+        senhaHash: true,
+        ativo: true,
+        emailConfirmadoEm: true,
+        perfil: { select: { codigo: true } },
+      },
     });
     if (!bruto) {
       return null;
@@ -101,6 +109,7 @@ export class UsuariosRepository {
       id: bruto.id,
       senhaHash: bruto.senhaHash,
       ativo: bruto.ativo,
+      emailConfirmadoEm: bruto.emailConfirmadoEm,
       perfil: bruto.perfil.codigo,
     };
   }
@@ -108,7 +117,13 @@ export class UsuariosRepository {
   async buscarCredencialPorId(id: string): Promise<CredencialUsuario | null> {
     const bruto = await this.prisma.usuario.findUnique({
       where: { id },
-      select: { id: true, senhaHash: true, ativo: true, perfil: { select: { codigo: true } } },
+      select: {
+        id: true,
+        senhaHash: true,
+        ativo: true,
+        emailConfirmadoEm: true,
+        perfil: { select: { codigo: true } },
+      },
     });
     if (!bruto) {
       return null;
@@ -117,6 +132,7 @@ export class UsuariosRepository {
       id: bruto.id,
       senhaHash: bruto.senhaHash,
       ativo: bruto.ativo,
+      emailConfirmadoEm: bruto.emailConfirmadoEm,
       perfil: bruto.perfil.codigo,
     };
   }
@@ -126,12 +142,22 @@ export class UsuariosRepository {
     email: string;
     senhaHash: string;
     perfil: PerfilCodigo;
+    /**
+     * Quando a posse do e-mail ja e pressuposto e nao precisa ser provada.
+     *
+     * Conta criada por um Administrador nasce confirmada: ele digitou o
+     * endereco e entrega a senha em maos. Exigir confirmacao ali trancaria a
+     * conta, porque essa rota nao envia e-mail nenhum. Quem nasce `null` e o
+     * auto-cadastro, onde o e-mail e afirmacao de um desconhecido.
+     */
+    emailConfirmadoEm?: Date | null;
   }): Promise<UsuarioRegistro> {
     const bruto = await this.prisma.usuario.create({
       data: {
         nome: dados.nome,
         email: UsuariosRepository.normalizarEmail(dados.email),
         senhaHash: dados.senhaHash,
+        emailConfirmadoEm: dados.emailConfirmadoEm ?? null,
         perfil: { connect: { codigo: dados.perfil } },
       },
       select: UsuariosRepository.SELECAO,

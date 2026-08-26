@@ -28,6 +28,7 @@ describe('AuthService', () => {
     id: 'usuario-1',
     senhaHash: 'scrypt$...',
     ativo: true,
+    emailConfirmadoEm: new Date('2026-08-01T12:00:00Z'),
     perfil: PerfilCodigo.ADMINISTRADOR,
   };
 
@@ -110,6 +111,34 @@ describe('AuthService', () => {
     );
   });
 
+  it('recusa login de e-mail ainda não confirmado, dizendo o motivo', async () => {
+    usuarios.buscarCredencialPorEmail.mockResolvedValue({
+      ...credencialValida,
+      emailConfirmadoEm: null,
+    });
+    senhas.conferir.mockResolvedValue(true);
+
+    // Diferente do resto das falhas de login, esta fala alto: so se chega aqui
+    // com a senha correta, entao nao ha o que denunciar a quem nao a sabia.
+    await expect(servico.login('admin@exemplo.br', 'Senha-Muito-Boa-2026')).rejects.toThrow(
+      /Confirme seu e-mail/,
+    );
+    expect(auditoria.registrar).toHaveBeenCalledWith(
+      expect.objectContaining({ detalhe: { motivo: 'email_nao_confirmado' } }),
+    );
+  });
+
+  it('não deixa a falta de confirmação vazar para quem erra a senha', async () => {
+    usuarios.buscarCredencialPorEmail.mockResolvedValue({
+      ...credencialValida,
+      emailConfirmadoEm: null,
+    });
+    senhas.conferir.mockResolvedValue(false);
+
+    await expect(servico.login('admin@exemplo.br', 'errada')).rejects.toThrow(
+      'Credenciais inválidas.',
+    );
+  });
   it('nunca registra a senha nem o token na auditoria', async () => {
     usuarios.buscarCredencialPorEmail.mockResolvedValue(credencialValida);
     senhas.conferir.mockResolvedValue(true);

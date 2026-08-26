@@ -103,12 +103,15 @@ export default defineConfig(({ mode }) => {
         // o arquivo seria copiado literalmente, com o placeholder intacto.
         //
         // `r.html` é a ponta do link de coleta. Não fala com a API — o código da
-        // pesquisa vem na própria URL —, mas entra aqui junto para as três
-        // páginas do painel saírem do mesmo build.
+        // pesquisa vem na própria URL —, mas entra aqui junto para as páginas do
+        // painel saírem todas do mesmo build. `confirmar.html` é onde cai o
+        // link do e-mail de cadastro: fala com a API, então precisa do mesmo
+        // `%VITE_API_URL%` que a de download.
         input: {
           index: resolve(__dirname, 'index.html'),
           download: resolve(__dirname, 'download.html'),
           r: resolve(__dirname, 'r.html'),
+          confirmar: resolve(__dirname, 'confirmar.html'),
         },
       },
     },

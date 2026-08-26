@@ -12,8 +12,15 @@ import { Throttle } from '@nestjs/throttler';
 
 import { UsuariosRepository } from '../usuarios/usuarios.repository';
 import { AuthService } from './auth.service';
+import { CadastroService } from './cadastro.service';
 import { Publico } from './decorators/publico.decorator';
 import { UsuarioAtual } from './decorators/usuario-atual.decorator';
+import {
+  CadastroAceitoResponse,
+  ConfirmarEmailDto,
+  ReenviarConfirmacaoDto,
+  RegistrarDto,
+} from './dto/cadastro.dto';
 import { LoginDto } from './dto/login.dto';
 import { RenovarDto } from './dto/renovar.dto';
 import { TokenResponse, UsuarioLogadoResponse } from './dto/token.response';
@@ -25,6 +32,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly usuarios: UsuariosRepository,
+    private readonly cadastro: CadastroService,
   ) {}
 
   /** Rate limit próprio, bem mais apertado que o global: login é alvo de força bruta. */
@@ -36,6 +44,43 @@ export class AuthController {
   @ApiOkResponse({ type: TokenResponse })
   async login(@Body() dto: LoginDto): Promise<TokenResponse> {
     return this.auth.login(dto.email, dto.senha);
+  }
+
+  /**
+   * Auto-cadastro.
+   *
+   * Limite bem apertado: cada requisição aqui dispara um e-mail para um
+   * endereço que quem chamou escolheu. Sem teto, a rota vira ferramenta de
+   * incomodar terceiro usando o nome do projeto como remetente.
+   */
+  @Publico()
+  @Throttle({ default: { limit: 3, ttl: 3_600_000 } })
+  @Post('registrar')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Cria conta de Pesquisador e envia a confirmação por e-mail.' })
+  @ApiOkResponse({ type: CadastroAceitoResponse })
+  async registrar(@Body() dto: RegistrarDto): Promise<CadastroAceitoResponse> {
+    return { mensagem: await this.cadastro.registrar(dto) };
+  }
+
+  @Publico()
+  @Throttle({ default: { limit: 3, ttl: 3_600_000 } })
+  @Post('reenviar-confirmacao')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Reenvia o link de confirmação de e-mail.' })
+  @ApiOkResponse({ type: CadastroAceitoResponse })
+  async reenviarConfirmacao(@Body() dto: ReenviarConfirmacaoDto): Promise<CadastroAceitoResponse> {
+    return { mensagem: await this.cadastro.reenviar(dto.email) };
+  }
+
+  /** Mais folgado que o cadastro: aqui não sai e-mail, e errar o link é comum. */
+  @Publico()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('confirmar-email')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Confirma a posse do e-mail pelo token do link.' })
+  async confirmarEmail(@Body() dto: ConfirmarEmailDto): Promise<void> {
+    await this.cadastro.confirmar(dto.token);
   }
 
   @Publico()

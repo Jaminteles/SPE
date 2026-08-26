@@ -45,6 +45,9 @@ model Usuario {
   ativo         Boolean   @default(true)
   perfilId      String    @map("perfil_id") @db.Uuid
   ultimoLoginEm DateTime? @map("ultimo_login_em") @db.Timestamptz(6)
+  /// Posse do e-mail comprovada. NULL bloqueia o login: cadastro aberto sem
+  /// isso aceitaria conta em e-mail de terceiro.
+  emailConfirmadoEm DateTime? @map("email_confirmado_em") @db.Timestamptz(6)
   criadoEm      DateTime  @default(now()) @map("criado_em") @db.Timestamptz(6)
   atualizadoEm  DateTime  @updatedAt @map("atualizado_em") @db.Timestamptz(6)
 
@@ -53,6 +56,7 @@ model Usuario {
   respostasInvalidadas Resposta[]     @relation("RespostaInvalidadaPor")
   logs                 LogAuditoria[]
   sessoes              Sessao[]
+  confirmacoesEmail    ConfirmacaoEmail[]
 
   @@index([perfilId])
   @@map("usuario")
@@ -77,6 +81,22 @@ model Sessao {
   @@index([usuarioId, encerradaEm])
   @@index([ultimaAtividadeEm])
   @@map("sessao")
+}
+
+/// Token de confirmacao de e-mail. Guarda apenas o hash: o valor em claro
+/// existe so no e-mail enviado, como no refresh token e no token de coleta.
+model ConfirmacaoEmail {
+  id        String    @id @default(uuid()) @db.Uuid
+  usuarioId String    @map("usuario_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.Char(64)
+  criadoEm  DateTime  @default(now()) @map("criado_em") @db.Timestamptz(6)
+  expiraEm  DateTime  @map("expira_em") @db.Timestamptz(6)
+  usadoEm   DateTime? @map("usado_em") @db.Timestamptz(6)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, criadoEm])
+  @@map("confirmacao_email")
 }
 
 enum SessaoMotivo {
@@ -384,6 +404,7 @@ enum AuditoriaAcao {
   EXPORTACAO_GERADA
   EXPURGO_TECNICO
   EXPURGO_RESPOSTAS
+  EMAIL_CONFIRMADO
 
   @@map("auditoria_acao")
 }

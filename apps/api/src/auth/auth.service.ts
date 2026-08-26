@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AuditoriaAcao, PerfilCodigo, SessaoMotivo } from '@prisma/client';
@@ -58,6 +58,25 @@ export class AuthService {
         detalhe: { motivo: this.motivoDaFalha(!!credencial, senhaConfere, credencial?.ativo) },
       });
       throw new UnauthorizedException(AuthService.MENSAGEM_FALHA);
+    }
+
+    // Dito em voz alta, ao contrário de todo o resto das falhas de login.
+    //
+    // Só se chega aqui com a senha correta, então a resposta não denuncia
+    // nada a quem não sabia a senha — e quem sabe a senha precisa saber que
+    // o que falta é confirmar o e-mail, senão fica preso numa tela que diz
+    // "credenciais inválidas" para uma credencial que está certa.
+    if (!credencial.emailConfirmadoEm) {
+      await this.auditoria.registrar({
+        acao: AuditoriaAcao.LOGIN_FALHA,
+        entidade: 'usuario',
+        entidadeId: credencial.id,
+        usuarioId: credencial.id,
+        detalhe: { motivo: 'email_nao_confirmado' },
+      });
+      throw new ForbiddenException(
+        'Confirme seu e-mail antes de entrar. Peça um novo link na tela de entrada.',
+      );
     }
 
     const tokens = await this.emitir(credencial.id, credencial.perfil);

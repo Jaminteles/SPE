@@ -34,6 +34,58 @@ Forçar o recálculo das agregações (`POST /agregacao/atualizar`) continua só
 recalcula as views inteiras, e liberá-lo daria a qualquer conta um jeito barato de martelar o
 banco. O resultado do `PESQUISADOR` atualiza no ciclo automático, como o de todo mundo.
 
+## Auto-cadastro
+
+Desligado por padrão (`CADASTRO_ABERTO=false`). Ligado, qualquer pessoa cria conta de
+`PESQUISADOR` e passa a gerenciar as próprias pesquisas nesta instalação.
+
+```
+POST /api/v1/auth/registrar             nome + e-mail + senha  → 202, mensagem neutra
+POST /api/v1/auth/reenviar-confirmacao  e-mail                 → 202, mensagem neutra
+POST /api/v1/auth/confirmar-email       token do link          → 204
+```
+
+### O que não vaza
+
+Cadastro e reenvio respondem **sempre a mesma mensagem**, tenha o e-mail conta ou não.
+Resposta diferente para e-mail existente transformaria a rota num verificador de cadastro — e
+como o e-mail costuma ser o mesmo em vários serviços, isso é dado de terceiro, não nosso.
+
+A exceção é o login: senha certa e e-mail não confirmado responde **dizendo isso**. Só se
+chega ali sabendo a senha, então não há o que denunciar a quem não sabia — e quem sabe precisa
+entender o que falta, senão fica preso numa tela de credencial inválida para uma credencial
+correta.
+
+### A conta nasce trancada
+
+Sem confirmação não há login. É o que impede cadastro no e-mail de outra pessoa e cadastro em
+massa com endereço inventado.
+
+Nasce **confirmada** quem foi criado por um Administrador (`POST /usuarios`) ou pelo script de
+implantação: os dois pressupõem a posse do e-mail, e nenhum deles envia e-mail — deixar
+pendente ali trancaria a conta sem caminho de volta. A migration faz o mesmo com as contas que
+já existiam.
+
+### O token
+
+32 bytes aleatórios, guardados como sha256 na tabela `confirmacao_email` — o valor em claro
+existe só no e-mail enviado, como no refresh token e no token de coleta. Vale uma vez, vence em
+`CONFIRMACAO_EMAIL_TTL_HORAS` (24 por padrão), e pedir um novo aposenta o anterior: dois links
+vivos ao mesmo tempo dobrariam a janela de quem interceptou o primeiro.
+
+O link cai em `<painel>/confirmar.html?t=<token>`, que confirma e **apaga o token da barra de
+endereço** antes de qualquer outra coisa — histórico de navegador não é lugar de credencial.
+
+### Envio de e-mail
+
+Atrás de `ProvedorDeEmail`, hoje sobre o Brevo. Sem `BREVO_API_KEY` nada é enviado e a mensagem
+vai para o log, o que mantém o desenvolvimento rodando sem credencial. Ligar `CADASTRO_ABERTO`
+sem envio configurado **impede a API de subir**: sem essa trava, toda conta nova nasceria
+trancada e a falha apareceria como "não recebi o e-mail" no suporte, não no log.
+
+Falha de envio não derruba o cadastro — a conta fica criada e a pessoa pede reenvio. Derrubar
+deixaria o e-mail tomado e a conta inacessível, que é o pior dos dois mundos.
+
 ## Fluxo
 
 ```

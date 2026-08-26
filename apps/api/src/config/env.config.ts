@@ -35,6 +35,11 @@ export interface AppEnv {
   TURNSTILE_SECRET: string | undefined;
   TURNSTILE_OBRIGATORIO: boolean;
   TURNSTILE_EXIGIR_NO_APLICATIVO: boolean;
+  CADASTRO_ABERTO: boolean;
+  BREVO_API_KEY: string | undefined;
+  EMAIL_REMETENTE: string;
+  EMAIL_REMETENTE_NOME: string;
+  CONFIRMACAO_EMAIL_TTL_HORAS: number;
 }
 
 const AMBIENTES = ['development', 'test', 'production'] as const;
@@ -85,6 +90,22 @@ export function validarAmbiente(bruto: Record<string, unknown>): AppEnv {
   }
   if (jwtSecret.length < SEGREDO_MINIMO) {
     throw new Error(`JWT_SECRET curto demais: mínimo de ${SEGREDO_MINIMO} caracteres.`);
+  }
+
+  // Cadastro aberto sem envio de e-mail configurado aceitaria cadastro e nunca
+  // entregaria o link de confirmação: toda conta nova nasceria trancada, e a
+  // falha apareceria como "não recebi o e-mail" no suporte, não no log.
+  const cadastroAberto = booleano(bruto.CADASTRO_ABERTO, false);
+  if (cadastroAberto) {
+    const faltando = ['BREVO_API_KEY', 'EMAIL_REMETENTE'].filter(
+      (nome) => !String(bruto[nome] ?? '').trim(),
+    );
+    if (faltando.length > 0) {
+      throw new Error(
+        `CADASTRO_ABERTO=true exige ${faltando.join(' e ')}. ` +
+          'Sem envio de e-mail, nenhuma conta nova consegue confirmar o cadastro.',
+      );
+    }
   }
 
   const corsOrigins = String(bruto.CORS_ORIGINS ?? '')
@@ -164,5 +185,18 @@ export function validarAmbiente(bruto: Record<string, unknown>): AppEnv {
     TURNSTILE_SECRET: (bruto.TURNSTILE_SECRET as string | undefined) || undefined,
     TURNSTILE_OBRIGATORIO: booleano(bruto.TURNSTILE_OBRIGATORIO, false),
     TURNSTILE_EXIGIR_NO_APLICATIVO: booleano(bruto.TURNSTILE_EXIGIR_NO_APLICATIVO, false),
+    // Cadastro aberto: desligado por padrão. Quem liga assume que qualquer
+    // pessoa passa a criar conta e pesquisa nesta instalação.
+    CADASTRO_ABERTO: cadastroAberto,
+    BREVO_API_KEY: (bruto.BREVO_API_KEY as string | undefined) || undefined,
+    EMAIL_REMETENTE: String(bruto.EMAIL_REMETENTE ?? ''),
+    EMAIL_REMETENTE_NOME: String(bruto.EMAIL_REMETENTE_NOME ?? 'Pesquisa Eleitoral'),
+    // Prazo curto de propósito: o link é credencial de acesso à conta, e
+    // caixa de e-mail esquecida aberta é risco que não precisa durar dias.
+    CONFIRMACAO_EMAIL_TTL_HORAS: inteiro(
+      bruto.CONFIRMACAO_EMAIL_TTL_HORAS as string | undefined,
+      24,
+      'CONFIRMACAO_EMAIL_TTL_HORAS',
+    ),
   };
 }

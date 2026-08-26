@@ -73,7 +73,16 @@ async function main() {
   }
 
   const criado = await prisma.usuario.create({
-    data: { nome, email, senhaHash: await gerarHash(senha), perfilId: perfil.id },
+    data: {
+      nome,
+      email,
+      senhaHash: await gerarHash(senha),
+      perfilId: perfil.id,
+      // Nasce confirmada. Este script nao envia e-mail — e nem teria para onde
+      // enviar na implantacao — entao deixar pendente trancaria o unico
+      // Administrador para fora do sistema que ele acabou de instalar.
+      emailConfirmadoEm: new Date(),
+    },
     select: { id: true, email: true },
   });
 

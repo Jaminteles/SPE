@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <!-- O token está na URL. Sem isto, ele viajaria no Referer para qualquer
+         destino que a página levasse. -->
+    <meta name="referrer" content="no-referrer" />
+    <title>Confirmar cadastro</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --fundo: #f5f7f9;
+        --superficie: #ffffff;
+        --texto: #16202a;
+        --suave: #5b6b7b;
+        --borda: #d7dee6;
+        --acao: #16202a;
+        --acao-texto: #ffffff;
+        --aviso: #a3231f;
+        --ok: #1c7a4a;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fundo: #0e141a;
+          --superficie: #151d26;
+          --texto: #e8eef4;
+          --suave: #9fb0be;
+          --borda: #263340;
+          --acao: #e8eef4;
+          --acao-texto: #16202a;
+          --aviso: #ff8c86;
+          --ok: #64d19b;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 24px 16px 48px;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        background: var(--fundo);
+        color: var(--texto);
+        line-height: 1.55;
+      }
+      main {
+        max-width: 640px;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 26px;
+        margin: 0 0 4px;
+      }
+      section {
+        background: var(--superficie);
+        border: 1px solid var(--borda);
+        border-radius: 10px;
+        padding: 18px;
+        margin-top: 20px;
+      }
+      a.botao {
+        display: inline-block;
+        background: var(--acao);
+        color: var(--acao-texto);
+        text-decoration: none;
+        font-weight: 600;
+        padding: 12px 18px;
+        border-radius: 8px;
+      }
+      .ok {
+        color: var(--ok);
+        font-weight: 600;
+      }
+      .alerta {
+        color: var(--aviso);
+        font-weight: 600;
+      }
+      .rodape {
+        color: var(--suave);
+        font-size: 14px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Confirmar cadastro</h1>
+
+      <section id="processando">
+        <p>Confirmando…</p>
+      </section>
+
+      <section id="sucesso" hidden>
+        <p class="ok">Cadastro confirmado.</p>
+        <p>Sua conta já pode entrar, no aplicativo ou aqui no painel.</p>
+        <p><a class="botao" href="/">Ir para a entrada</a></p>
+      </section>
+
+      <section id="falha" hidden>
+        <p class="alerta" id="motivo">Não foi possível confirmar.</p>
+        <p>
+          O link vale uma vez só e vence depois de algumas horas. Peça um novo na tela de entrada,
+          usando a opção de reenviar a confirmação.
+        </p>
+        <p><a class="botao" href="/">Ir para a entrada</a></p>
+      </section>
+
+      <p class="rodape">
+        Se não foi você quem criou esta conta, ignore: sem esta confirmação nenhuma conta é
+        ativada.
+      </p>
+    </main>
+
+    <script>
+      // Injetado pelo Vite no build. O painel costuma ficar noutro domínio que a
+      // API, então supor a origem local levaria a um POST que nunca responde.
+      const API = '%VITE_API_URL%'.replace(/\/+$/, '');
+
+      const token = (new URLSearchParams(location.search).get('t') || '').trim();
+
+      const mostrar = (qual, motivo) => {
+        document.getElementById('processando').hidden = true;
+        document.getElementById(qual).hidden = false;
+        if (motivo) {
+          document.getElementById('motivo').textContent = motivo;
+        }
+      };
+
+      // O token sai da barra de endereço assim que é lido: a partir daqui ele
+      // não fica no histórico do navegador nem no que a pessoa copia da URL.
+      if (token) {
+        history.replaceState(null, '', location.pathname);
+      }
+
+      if (!token) {
+        mostrar('falha', 'Este link não traz o código de confirmação.');
+      } else {
+        fetch(API + '/auth/confirmar-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ token: token }),
+        })
+          .then((resposta) => {
+            if (resposta.ok) {
+              mostrar('sucesso');
+              return;
+            }
+            return resposta
+              .json()
+              .catch(() => ({}))
+              .then((corpo) => {
+                const mensagem = Array.isArray(corpo.mensagem) ? corpo.mensagem[0] : corpo.mensagem;
+                mostrar('falha', mensagem || 'Não foi possível confirmar.');
+              });
+          })
+          .catch(() => {
+            mostrar('falha', 'Não foi possível falar com o servidor. Tente de novo em instantes.');
+          });
+      }
+    </script>
+  </body>
+</html>
