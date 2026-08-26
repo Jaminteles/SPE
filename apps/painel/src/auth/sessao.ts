@@ -1,6 +1,6 @@
 import { ErroApi, baixar, chamar } from '../api/cliente';
 
-export type Perfil = 'ADMINISTRADOR' | 'ANALISTA';
+export type Perfil = 'ADMINISTRADOR' | 'ANALISTA' | 'PESQUISADOR';
 
 export interface UsuarioLogado {
   id: string;

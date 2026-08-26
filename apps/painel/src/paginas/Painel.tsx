@@ -37,6 +37,7 @@ interface Props {
 const NOME_DO_PERFIL: Record<UsuarioLogado['perfil'], string> = {
   ADMINISTRADOR: 'Administrador',
   ANALISTA: 'Analista',
+  PESQUISADOR: 'Pesquisador',
 };
 
 /**

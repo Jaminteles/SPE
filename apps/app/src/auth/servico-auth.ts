@@ -1,7 +1,7 @@
 import { chamar } from '../api/cliente';
 import { armazenamentoDeSessao } from './armazenamento';
 
-export type Perfil = 'ADMINISTRADOR' | 'ANALISTA';
+export type Perfil = 'ADMINISTRADOR' | 'ANALISTA' | 'PESQUISADOR';
 
 export interface RespostaLogin {
   accessToken: string;

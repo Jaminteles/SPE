@@ -14,6 +14,7 @@ interface Props {
 const NOME_DO_PERFIL: Record<UsuarioLogado['perfil'], string> = {
   ADMINISTRADOR: 'Administrador',
   ANALISTA: 'Analista',
+  PESQUISADOR: 'Pesquisador',
 };
 
 /**
@@ -26,7 +27,13 @@ export function TelaInicio({
   aoAbrirFormularios,
   aoAbrirResultados,
 }: Props) {
-  const ehAdministrador = usuario.perfil === 'ADMINISTRADOR';
+  /**
+   * Quem monta pesquisa. O Pesquisador monta as próprias — o que ele não tem é
+   * alcance sobre a pesquisa dos outros, e disso quem cuida é o guard da API,
+   * não este menu.
+   */
+  const podeMontarPesquisa =
+    usuario.perfil === 'ADMINISTRADOR' || usuario.perfil === 'PESQUISADOR';
 
   return (
     <ScrollView contentContainerStyle={estilos.conteudo}>
@@ -35,7 +42,7 @@ export function TelaInicio({
         <Text style={estilos.perfil}>{NOME_DO_PERFIL[usuario.perfil]}</Text>
       </View>
 
-      {ehAdministrador ? (
+      {podeMontarPesquisa ? (
         <Cartao>
           <Text style={estilos.cartaoTitulo}>Pesquisas</Text>
           <Text style={estilos.cartaoTexto}>
@@ -50,9 +57,9 @@ export function TelaInicio({
       <Cartao>
         <Text style={estilos.cartaoTitulo}>Resultados</Text>
         <Text style={estilos.cartaoTexto}>
-          {ehAdministrador
+          {podeMontarPesquisa
             ? 'Indicadores, distribuição por pergunta e evolução da coleta.'
-            : 'Indicadores, distribuição por pergunta e evolução da coleta. A montagem de formulário é exclusiva do Administrador.'}
+            : 'Indicadores, distribuição por pergunta e evolução da coleta. Montar formulário é de quem cria a pesquisa.'}
         </Text>
         <View style={estilos.acao}>
           <Botao titulo="Ver resultados" aoTocar={aoAbrirResultados} />
